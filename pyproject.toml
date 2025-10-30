@@ -1,0 +1,21 @@
+[project]
+name = "wavey"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "basemap",
+    "basemap-data-hires",
+    "matplotlib",
+    "mpld3",
+    "numpy",
+    "pygrib",
+    "tqdm",
+    "tyro",
+]
+
+[dependency-groups]
+dev = [
+    "ruff",
+]

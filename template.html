@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Scrubber</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: white;
+      color: grey;
+    }
+    img {
+      width: 600px;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      margin-bottom: 1em;
+    }
+    input[type="range"] {
+      width: 600px;
+    }
+  </style>
+</head>
+<body>
+
+  <div>Significant height of combined wind waves and swell (ft)</div>
+  <img id="scrubImage" src="plots/0.png" alt="Scrubbed image" />
+  <input type="range" id="slider" min="0" max="144" value="0" />
+
+  <!-- insert the plot here -->
+
+  <script>
+    const slider = document.getElementById('slider');
+    const img = document.getElementById('scrubImage');
+
+    slider.addEventListener('input', () => {
+      const frame = slider.value;
+      img.src = `plots/${frame}.png`;
+    });
+  </script>
+</body>
+</html>
+
