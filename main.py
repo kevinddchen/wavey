@@ -5,7 +5,7 @@ from enum import IntEnum
 from pathlib import Path
 from typing import NamedTuple
 
-import matplotlib.colors as mcolors
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
@@ -17,6 +17,10 @@ LOG = logging.getLogger(__name__)
 
 FEET_PER_METER = 3.28
 
+NUM_FORECASTS = 145  # 1 + 24 * 6 hours
+"""Number of forecasts for each data type in the NWFS GRIB file."""
+
+# Lat/lon bounding box for zoon-in on Monterey peninsula
 LAT_MIN = 36.4  # 36.2
 LAT_MAX = 36.7  # 37.0
 LON_MIN = 237.9  # 237.8
@@ -25,8 +29,8 @@ LON_MAX = 238.2  # 238.3
 BREAKWATER_LAT = 36.61
 BREAKWATER_LON = 238.105
 
-NUM_MESSAGES = 145  # 1 + 24 * 6 hours
-"""Number of messages for each data type"""
+MAX_WAVE_HEIGHT_FT = 12.0
+"""The highest value in the wave height colormap."""
 
 
 class DataType(IntEnum):
@@ -54,7 +58,7 @@ class DataType(IntEnum):
 
 class ForecastData(NamedTuple):
     data: np.ma.MaskedArray
-    """Array with shape [LATS, LONS, NUM_MESSAGES]."""
+    """Array with shape [NUM_FORECASTS, LATS, LONS]."""
     lats: np.ndarray
     """Array with shape [LATS, LONS]."""
     lons: np.ndarray
@@ -76,14 +80,14 @@ def read_forecast_data(grbs: pygrib.open, data_type: DataType) -> ForecastData:
         Forecast data of the specified type.
     """
 
-    grbs.seek(data_type * NUM_MESSAGES)  # message offset
+    grbs.seek(data_type * NUM_FORECASTS)  # message offset
 
     data_list: list[np.ma.MaskedArray] = []
     lats: np.ndarray | None = None
     lons: np.ndarray | None = None
     analysis_date_utc: datetime.datetime | None = None
 
-    for grb in grbs.read(NUM_MESSAGES):
+    for grb in grbs.read(NUM_FORECASTS):
         data, lats, lons = grb.data(lat1=LAT_MIN, lat2=LAT_MAX, lon1=LON_MIN, lon2=LON_MAX)
         data_list.append(data)
 
@@ -137,19 +141,19 @@ def main(
 
     LOG.info(f"Reading {grib_path}...")
     with pygrib.open(grib_path) as grbs:
-        wave_height_m_forecast = read_forecast_data(grbs, DataType.WaveHeight)
+        wave_height_forecast = read_forecast_data(grbs, DataType.WaveHeight)
 
-    wave_heights_ft = wave_height_m_forecast.data * FEET_PER_METER
-    lats = wave_height_m_forecast.lats
-    lons = wave_height_m_forecast.lons
-    analysis_date_pacific = utc_to_pt(wave_height_m_forecast.analysis_date)
+    wave_height_ft = wave_height_forecast.data * FEET_PER_METER
+    lats = wave_height_forecast.lats
+    lons = wave_height_forecast.lons
+    analysis_date_pacific = utc_to_pt(wave_height_forecast.analysis_date)
 
     # Get Breakwater data
 
     bw_lat_idx = lats[..., 0].searchsorted(BREAKWATER_LAT)
     bw_lon_idx = lons[0].searchsorted(BREAKWATER_LON)
 
-    bw_wave_heights_ft = wave_heights_ft[..., bw_lat_idx, bw_lon_idx]
+    bw_wave_heights_ft = wave_height_ft[..., bw_lat_idx, bw_lon_idx]
     assert not np.ma.is_masked(bw_wave_heights_ft), "Unexpected: Breakwater data contains masked points"
 
     # Draw Breakwater graph
@@ -157,7 +161,7 @@ def main(
     LOG.info("Drawing Breakwater swell graph...")
     fig, ax = plt.subplots(figsize=(6, 2))
 
-    x = list(range(NUM_MESSAGES))
+    x = list(range(NUM_FORECASTS))
     x_dates = [analysis_date_pacific + datetime.timedelta(hours=hour_i) for hour_i in x]
     x_ticks = [hour_i for hour_i, dt in zip(x, x_dates, strict=True) if dt.hour == 0]
     x_ticklabels = [x_dates[i].strftime("%a %b %d") for i in x_ticks]
@@ -177,7 +181,7 @@ def main(
 
     LOG.info("Drawing map frames...")
     fig, ax = plt.subplots(figsize=(8, 8))
-    m = Basemap(
+    map = Basemap(
         projection="cyl",
         llcrnrlat=LAT_MIN,
         llcrnrlon=LON_MIN,
@@ -186,22 +190,24 @@ def main(
         resolution="h",
         ax=ax,
     )
-    m.drawcoastlines()
+    map.drawcoastlines()
 
-    img = m.imshow(
-        wave_heights_ft[0],
+    img = map.imshow(
+        wave_height_ft[0],
         cmap="jet",
-        norm=mcolors.Normalize(vmin=0, vmax=12),
+        norm=mpl.colors.Normalize(vmin=0, vmax=MAX_WAVE_HEIGHT_FT),
     )
     plt.colorbar(img, orientation="vertical", label="(ft)", shrink=0.8)
 
     plot_dir = out_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
-    for hour_i in tqdm(range(NUM_MESSAGES)):
+    for hour_i in tqdm(range(NUM_FORECASTS)):
         pacific_time = analysis_date_pacific + datetime.timedelta(hours=hour_i)
         pacific_time_str = pacific_time.strftime("%a %b %d %H:%M")
 
-        img.set_data(wave_heights_ft[hour_i])
+        if hour_i != 0:
+            img.set_data(wave_height_ft[hour_i])
+
         plt.title(f"Hour {hour_i:03} ({pacific_time_str})")
         plt.savefig(plot_dir / f"{hour_i}.png")
 
