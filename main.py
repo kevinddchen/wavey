@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import NamedTuple
 
 import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import matplotlib.text as mtext
 import mpld3
 import numpy as np
 import pygrib
@@ -132,7 +132,7 @@ def draw_arrows(
     lons: np.ndarray,
     margin: int = 1,
     stride: int = 3,
-) -> tuple[list[mtext.Annotation], list[tuple[int, int]]]:
+) -> tuple[list[mpatches.FancyArrow], list[tuple[int, int]]]:
     """
     Draw the initial arrows.
 
@@ -145,11 +145,11 @@ def draw_arrows(
         stride: Create an arrow for every multiple of `stride` indicies.
 
     Returns:
-        Tuple of `matplotlib.text.Annotation` instances representing each
-        arrow, and the corresponding lat/lon indices.
+        Tuple of `matplotlib.patches.FancyArrow` instances and the
+        corresponding lat/lon indices.
     """
 
-    arrows: list[mtext.Annotation] = []
+    arrows: list[mpatches.FancyArrow] = []
     latlon_idxs: list[tuple[int, int]] = []
 
     for lat_idx in range(margin, len(lats[..., 0]) - margin, stride):
@@ -166,9 +166,15 @@ def draw_arrows(
 
             arrow_center = np.array((lon, lat))
             arrow_start = arrow_center - 0.5 * dir_vec
-            arrow_end = arrow_center + 0.5 * dir_vec
 
-            arrow = plt.annotate("", xytext=arrow_start, xy=arrow_end, arrowprops=dict(arrowstyle="->"))
+            arrow = plt.arrow(
+                *arrow_start,
+                *dir_vec,
+                width=0.0003,
+                head_width=0.003,
+                color="black",
+                length_includes_head=True,
+            )
             arrows.append(arrow)
             latlon_idxs.append((lat_idx, lon_idx))
 
@@ -179,7 +185,7 @@ def update_arrows(
     headings_rad: np.ma.MaskedArray,
     lats: np.ndarray,
     lons: np.ndarray,
-    arrows: list[mtext.Annotation],
+    arrows: list[mpatches.FancyArrow],
     latlon_idxs: list[tuple[int, int]],
 ) -> None:
     """
@@ -190,8 +196,7 @@ def update_arrows(
             missing values.
         lats: Arrow center latitudes. Array with shape (LATS, LONS).
         lons: Arrow center longitudes. Array with shape (LATS, LONS).
-        arrows: The `matplotlib.text.Annotation` instances representing each
-            arrow.
+        arrows: The `matplotlib.patches.FancyArrow` instances.
         latlon_idxs: The corresponding lat/lon indices.
     """
 
@@ -209,10 +214,8 @@ def update_arrows(
 
         arrow_center = np.array((lon, lat))
         arrow_start = arrow_center - 0.5 * dir_vec
-        arrow_end = arrow_center + 0.5 * dir_vec
 
-        arrow.xyann = arrow_start
-        arrow.xy = arrow_end
+        arrow.set_data(x=arrow_start[0], y=arrow_start[1], dx=dir_vec[0], dy=dir_vec[1])
 
 
 def main(
@@ -296,7 +299,7 @@ def main(
     plt.colorbar(img, orientation="vertical", label="(ft)", shrink=0.8)
 
     # NOTE: add 180 degrees because "wind direction" is where the wind comes from
-    arrow_headings_rad = wave_direction_rad + np.pi
+    arrow_headings_rad = wave_direction_rad + np.pi  # (NUM_FORECASTS, LAT, LON)
     arrows, arrow_latlon_idxs = draw_arrows(arrow_headings_rad[0], lats=lats, lons=lons)
 
     plot_dir = out_dir / "plots"
