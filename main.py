@@ -3,6 +3,7 @@ import logging
 import zoneinfo
 from enum import IntEnum
 from pathlib import Path
+from typing import NamedTuple
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -51,13 +52,66 @@ class DataType(IntEnum):
     """Current speed (m/s)"""
 
 
-def _utc_to_pdt(dt: datetime.datetime) -> datetime.datetime:
-    """Convert UTC to PDT."""
+class ForecastData(NamedTuple):
+    data: np.ma.MaskedArray
+    """Array with shape [LATS, LONS, NUM_MESSAGES]."""
+    lats: np.ndarray
+    """Array with shape [LATS, LONS]."""
+    lons: np.ndarray
+    """Array with shape [LATS, LONS]."""
+    analysis_date: datetime.datetime
+    """Date and time of analysis, i.e. start of forecast."""
+
+
+def read_forecast_data(grbs: pygrib.open, data_type: DataType) -> ForecastData:
+    """
+    Read forecast data from Monterey Bay NWFS GRIB file, zoomed in near the
+    peninsula.
+
+    Args:
+        grbs: GRIB file.
+        data_type: Type of data to read.
+
+    Returns:
+        Forecast data of the specified type.
+    """
+
+    grbs.seek(data_type * NUM_MESSAGES)  # message offset
+
+    data_list: list[np.ma.MaskedArray] = []
+    lats: np.ndarray | None = None
+    lons: np.ndarray | None = None
+    analysis_date_utc: datetime.datetime | None = None
+
+    for grb in grbs.read(NUM_MESSAGES):
+        data, lats, lons = grb.data(lat1=LAT_MIN, lat2=LAT_MAX, lon1=LON_MIN, lon2=LON_MAX)
+        data_list.append(data)
+
+        if analysis_date_utc is None:
+            analysis_date_utc = grb.analDate
+
+    # assertions will fail if no messages were read
+    assert lats is not None
+    assert lons is not None
+    assert analysis_date_utc is not None
+    analysis_date_utc = analysis_date_utc.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
+    data_collated = np.ma.stack(data_list)
+
+    return ForecastData(
+        data=data_collated,
+        lats=lats,
+        lons=lons,
+        analysis_date=analysis_date_utc,
+    )
+
+
+def utc_to_pt(dt: datetime.datetime) -> datetime.datetime:
+    """Convert UTC to PT."""
 
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=datetime.timezone.utc)
     else:
-        assert dt.utcoffset == datetime.timedelta(), "datetime is not UTC"
+        assert dt.utcoffset() == datetime.timedelta(), "datetime is not UTC"
 
     pdt_tz = zoneinfo.ZoneInfo("America/Los_Angeles")
     return dt.astimezone(tz=pdt_tz)
@@ -81,31 +135,14 @@ def main(
 
     # Extract data
 
-    utc_start_time: datetime.datetime | None = None
-    wave_heights_m_list: list[np.ma.MaskedArray] = []
-    lats: np.ndarray | None = None
-    lons: np.ndarray | None = None
-
-    LOG.info(f"Loading GRIB file {grib_path}...")
+    LOG.info(f"Reading {grib_path}...")
     with pygrib.open(grib_path) as grbs:
-        grbs.seek(DataType.WaveHeight * NUM_MESSAGES)
+        wave_height_m_forecast = read_forecast_data(grbs, DataType.WaveHeight)
 
-        # pick wave height
-        for grb in grbs.read(NUM_MESSAGES):
-            wave_height_m, lats, lons = grb.data(
-                lat1=LAT_MIN, lat2=LAT_MAX, lon1=LON_MIN, lon2=LON_MAX
-            )
-            wave_heights_m_list.append(wave_height_m)
-
-            if utc_start_time is None:
-                utc_start_time = grb.analDate
-
-    assert utc_start_time is not None, "Unexpected: no messages were read"
-    assert lats is not None
-    assert lons is not None
-
-    pacific_start_time = _utc_to_pdt(utc_start_time)
-    wave_heights_ft = np.ma.stack(wave_heights_m_list) * FEET_PER_METER
+    wave_heights_ft = wave_height_m_forecast.data * FEET_PER_METER
+    lats = wave_height_m_forecast.lats
+    lons = wave_height_m_forecast.lons
+    analysis_date_pacific = utc_to_pt(wave_height_m_forecast.analysis_date)
 
     # Get Breakwater data
 
@@ -113,9 +150,7 @@ def main(
     bw_lon_idx = lons[0].searchsorted(BREAKWATER_LON)
 
     bw_wave_heights_ft = wave_heights_ft[..., bw_lat_idx, bw_lon_idx]
-    assert not np.ma.is_masked(bw_wave_heights_ft), (
-        "Unexpected: Breakwater data contains masked points"
-    )
+    assert not np.ma.is_masked(bw_wave_heights_ft), "Unexpected: Breakwater data contains masked points"
 
     # Draw Breakwater graph
 
@@ -123,7 +158,7 @@ def main(
     fig, ax = plt.subplots(figsize=(6, 2))
 
     x = list(range(NUM_MESSAGES))
-    x_dates = [pacific_start_time + datetime.timedelta(hours=hour_i) for hour_i in x]
+    x_dates = [analysis_date_pacific + datetime.timedelta(hours=hour_i) for hour_i in x]
     x_ticks = [hour_i for hour_i, dt in zip(x, x_dates, strict=True) if dt.hour == 0]
     x_ticklabels = [x_dates[i].strftime("%a %b %d") for i in x_ticks]
     y = bw_wave_heights_ft
@@ -163,7 +198,7 @@ def main(
     plot_dir = out_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
     for hour_i in tqdm(range(NUM_MESSAGES)):
-        pacific_time = pacific_start_time + datetime.timedelta(hours=hour_i)
+        pacific_time = analysis_date_pacific + datetime.timedelta(hours=hour_i)
         pacific_time_str = pacific_time.strftime("%a %b %d %H:%M")
 
         img.set_data(wave_heights_ft[hour_i])
