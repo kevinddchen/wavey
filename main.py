@@ -32,9 +32,9 @@ BREAKWATER_LAT = 36.61
 BREAKWATER_LON = 238.105
 
 MAX_WAVE_HEIGHT_FT = 12.0
-"""The highest value in the wave height colormap."""
+"""The maximum value in the wave height colormap."""
 
-WAVE_DIRECTION_ARROW_SIZE = 0.012
+WAVE_DIRECTION_ARROW_SIZE = 0.01
 """Size of arrows indicating wave direction, in degrees lat/lon."""
 
 
@@ -74,8 +74,8 @@ class ForecastData(NamedTuple):
 
 def read_forecast_data(grbs: pygrib.open, data_type: DataType) -> ForecastData:
     """
-    Read forecast data from Monterey Bay NWFS GRIB file, zoomed in near the
-    peninsula.
+    Read forecast data from Monterey Bay NWFS GRIB file, zoomed-in near the
+    peninsula (see {LAT|LON}_{MIN|MAX} values).
 
     Args:
         grbs: GRIB file.
@@ -170,9 +170,9 @@ def draw_arrows(
             arrow = plt.arrow(
                 *arrow_start,
                 *dir_vec,
-                width=0.0003,
-                head_width=0.003,
                 color="black",
+                width=0.0,
+                head_width=0.003,
                 length_includes_head=True,
             )
             arrows.append(arrow)
@@ -197,7 +197,7 @@ def update_arrows(
         lats: Arrow center latitudes. Array with shape (LATS, LONS).
         lons: Arrow center longitudes. Array with shape (LATS, LONS).
         arrows: The `matplotlib.patches.FancyArrow` instances.
-        latlon_idxs: The corresponding lat/lon indices.
+        latlon_idxs: The lat/lon indices of the arrows.
     """
 
     for arrow, latlon_idx in zip(arrows, latlon_idxs, strict=True):
@@ -299,8 +299,8 @@ def main(
     plt.colorbar(img, orientation="vertical", label="(ft)", shrink=0.8)
 
     # NOTE: add 180 degrees because "wind direction" is where the wind comes from
-    arrow_headings_rad = wave_direction_rad + np.pi  # (NUM_FORECASTS, LAT, LON)
-    arrows, arrow_latlon_idxs = draw_arrows(arrow_headings_rad[0], lats=lats, lons=lons)
+    arrow_heading_rad = wave_direction_rad + np.pi
+    arrows, arrow_latlon_idxs = draw_arrows(arrow_heading_rad[0], lats=lats, lons=lons)
 
     plot_dir = out_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
@@ -309,7 +309,7 @@ def main(
         pacific_time_str = pacific_time.strftime("%a %b %d %H:%M")
 
         img.set_data(wave_height_ft[hour_i])
-        update_arrows(arrow_headings_rad[hour_i], lats=lats, lons=lons, arrows=arrows, latlon_idxs=arrow_latlon_idxs)
+        update_arrows(arrow_heading_rad[hour_i], lats=lats, lons=lons, arrows=arrows, latlon_idxs=arrow_latlon_idxs)
 
         plt.title(f"Significant height of combined wind waves and swell (ft)\nHour {hour_i:03} ({pacific_time_str})")
         plt.savefig(plot_dir / f"{hour_i}.png")
