@@ -72,8 +72,8 @@ class ForecastData(NamedTuple):
     """Array with shape (LATS, LONS)."""
     lons: np.ndarray
     """Array with shape (LATS, LONS)."""
-    analysis_date: datetime.datetime
-    """Date and time of analysis, i.e. start of forecast."""
+    analysis_date_utc: datetime.datetime
+    """Date and time of analysis, i.e. start of forecast, in UTC."""
 
 
 def read_forecast_data(grbs: pygrib.open, data_type: DataType) -> ForecastData:
@@ -114,12 +114,12 @@ def read_forecast_data(grbs: pygrib.open, data_type: DataType) -> ForecastData:
         data=data_collated,
         lats=lats,
         lons=lons,
-        analysis_date=analysis_date_utc,
+        analysis_date_utc=analysis_date_utc,
     )
 
 
 def utc_to_pt(dt: datetime.datetime) -> datetime.datetime:
-    """Convert UTC to PT."""
+    """Convert UTC to pacific time."""
 
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=datetime.timezone.utc)
@@ -249,7 +249,7 @@ def main(
     wave_direction_rad = wave_direction_forecast.data * np.pi / 180
     lats = wave_height_forecast.lats
     lons = wave_height_forecast.lons
-    analysis_date_pacific = utc_to_pt(wave_height_forecast.analysis_date)
+    analysis_date_pacific = utc_to_pt(wave_height_forecast.analysis_date_utc)
 
     # Get Breakwater data
 
@@ -272,19 +272,16 @@ def main(
     LOG.info("Drawing swell graph...")
     fig, ax = plt.subplots(figsize=(6, 2))
 
-    x = list(range(NUM_FORECASTS))
+    # NOTE: need to erase timezone info for mlpd3 to plot local times correctly
+    x0 = analysis_date_pacific.replace(tzinfo=None)
+    x = [x0 + datetime.timedelta(hours=hour_i) for hour_i in range(NUM_FORECASTS)]
     for label, y in (("Breakwater", bw_wave_heights_ft), ("Monastery", mon_wave_heights_ft)):
         ax.plot(x, y, label=label)
 
-    x_dates = [analysis_date_pacific + datetime.timedelta(hours=hour_i) for hour_i in x]
-    x_ticks = [hour_i for hour_i, dt in zip(x, x_dates, strict=True) if dt.hour == 0]
-    x_ticklabels = [x_dates[i].strftime("%a %b %d") for i in x_ticks]
-
     ax.set_ylim(0)
-    ax.set_xticks(x_ticks)
-    ax.set_xticklabels(x_ticklabels)
     ax.set_ylabel("Significant wave height (ft)")
     ax.legend(loc="upper right")
+    ax.grid(linestyle=":")
 
     div_str = mpld3.fig_to_html(fig, figid="graph")
     template_html = Path("template.html").read_text()
