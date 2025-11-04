@@ -28,8 +28,12 @@ LON_MIN = 237.9  # 237.8
 LON_MAX = 238.2  # 238.3
 
 # Location of San Carlos Beach (aka Breakwater)
-BREAKWATER_LAT = 36.61
-BREAKWATER_LON = 238.105
+BREAKWATER_LAT = 36.611
+BREAKWATER_LON = 238.108
+
+# Location of San Carlos Beach (aka Breakwater)
+MONASTERY_LAT = 36.525
+MONASTERY_LON = 238.069
 
 MAX_WAVE_HEIGHT_FT = 12.0
 """The maximum value in the wave height colormap."""
@@ -255,21 +259,32 @@ def main(
     bw_wave_heights_ft = wave_height_ft[..., bw_lat_idx, bw_lon_idx]
     assert not np.ma.is_masked(bw_wave_heights_ft), "Unexpected: Breakwater data contains masked points"
 
+    # Get Monastery data
+
+    mon_lat_idx = lats[..., 0].searchsorted(MONASTERY_LAT)
+    mon_lon_idx = lons[0].searchsorted(MONASTERY_LON)
+
+    mon_wave_heights_ft = wave_height_ft[..., mon_lat_idx, mon_lon_idx]
+    assert not np.ma.is_masked(mon_wave_heights_ft), "Unexpected: Monastery data contains masked points"
+
     # Draw Breakwater graph
 
-    LOG.info("Drawing Breakwater swell graph...")
+    LOG.info("Drawing swell graph...")
     fig, ax = plt.subplots(figsize=(6, 2))
 
     x = list(range(NUM_FORECASTS))
+    for label, y in (("Breakwater", bw_wave_heights_ft), ("Monastery", mon_wave_heights_ft)):
+        ax.plot(x, y, label=label)
+
     x_dates = [analysis_date_pacific + datetime.timedelta(hours=hour_i) for hour_i in x]
     x_ticks = [hour_i for hour_i, dt in zip(x, x_dates, strict=True) if dt.hour == 0]
     x_ticklabels = [x_dates[i].strftime("%a %b %d") for i in x_ticks]
-    y = bw_wave_heights_ft
 
-    ax.plot(x, y)
     ax.set_ylim(0)
     ax.set_xticks(x_ticks)
     ax.set_xticklabels(x_ticklabels)
+    ax.set_ylabel("Significant wave height (ft)")
+    ax.legend(loc="upper right")
 
     div_str = mpld3.fig_to_html(fig, figid="graph")
     template_html = Path("template.html").read_text()
@@ -311,7 +326,7 @@ def main(
         img.set_data(wave_height_ft[hour_i])
         update_arrows(arrow_heading_rad[hour_i], lats=lats, lons=lons, arrows=arrows, latlon_idxs=arrow_latlon_idxs)
 
-        plt.title(f"Significant height of combined wind waves and swell (ft)\nHour {hour_i:03} ({pacific_time_str})")
+        plt.title(f"Significant wave height (ft) and primary wave direction\nHour {hour_i:03} ({pacific_time_str})")
         plt.savefig(plot_dir / f"{hour_i}.png")
 
 
