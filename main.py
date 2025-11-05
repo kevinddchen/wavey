@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 import zoneinfo
 from enum import IntEnum
 from pathlib import Path
@@ -11,6 +12,7 @@ import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 import pygrib
+import requests
 from mpl_toolkits.basemap import Basemap
 from tqdm import tqdm
 
@@ -74,6 +76,36 @@ class ForecastData(NamedTuple):
     """Array with shape (LATS, LONS)."""
     analysis_date_utc: datetime.datetime
     """Date and time of analysis, i.e. start of forecast, in UTC."""
+
+
+def download_most_recent_forecast_data(dir: Path) -> Path:
+    """
+    Downloads the most recent NWFS GRIB file and returns the path.
+
+    Args:
+        dir: Directory to save the file in.
+
+    Returns:
+        Path to the GRIB file.
+    """
+
+    # TODO: figure out the most recently published GRIB file
+    url = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod/wr.20251104/mtr/06/CG3/mtr_nwps_CG3_20251104_0600.grib2"
+
+    file_path = dir / os.path.basename(url)
+    if file_path.exists():
+        LOG.info(f"'{file_path}' already exists. Skipping download")
+        return file_path
+
+    LOG.info(f"Downloading '{url}' to '{file_path}'")
+    response = requests.get(url, stream=True)
+    response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+
+    with open(file_path, "wb") as file:
+        for chunk in response.iter_content(chunk_size=8192):
+            file.write(chunk)
+
+    return file_path
 
 
 def read_forecast_data(grbs: pygrib.open, data_type: DataType) -> ForecastData:
@@ -223,24 +255,32 @@ def update_arrows(
 
 
 def main(
-    grib_path: Path,
+    grib_path: Path | None = None,
     /,
-    out_dir: Path = Path("out"),
+    out_dir: Path = Path("_site"),
 ) -> None:
     """
     Create plots for significant wave height.
 
     Args:
         grib_path: Path to GRIB file. These are downloaded from:
-            https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod/
+            https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod/. If none,
+            will download the most recent one.
         out_dir: Path to output directory.
     """
 
+    LOG.info(f"Saving output assets to '{out_dir}'")
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Download data, if needed
+
+    if grib_path is None:
+        dir = Path(".")  # download to current directory
+        grib_path = download_most_recent_forecast_data(dir)
 
     # Extract data
 
-    LOG.info(f"Reading {grib_path}...")
+    LOG.info(f"Reading '{grib_path}'")
     with pygrib.open(grib_path) as grbs:
         wave_height_forecast = read_forecast_data(grbs, DataType.WaveHeight)
         wave_direction_forecast = read_forecast_data(grbs, DataType.WaveDirection)
@@ -269,7 +309,7 @@ def main(
 
     # Draw Breakwater graph
 
-    LOG.info("Drawing swell graph...")
+    LOG.info("Drawing swell graph")
     fig, ax = plt.subplots(figsize=(6, 2))
 
     # NOTE: need to erase timezone info for mlpd3 to plot local times correctly
@@ -290,7 +330,7 @@ def main(
 
     # Draw figure
 
-    LOG.info("Drawing map frames...")
+    LOG.info("Drawing map frames")
     fig, ax = plt.subplots(figsize=(8, 8))
     map = Basemap(
         projection="cyl",
