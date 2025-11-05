@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Image Scrubber</title>
+  <title>Monterey Conditions</title>
   <style>
     body {
       font-family: sans-serif;
@@ -31,16 +31,27 @@
   <img id="scrubImage" src="plots/0.png" alt="Scrubbed image" />
   <input type="range" id="slider" min="0" max="144" value="0" />
 
-  <!-- insert the plot here -->
-
   <script>
     const slider = document.getElementById('slider');
     const img = document.getElementById('scrubImage');
 
+    // --- Preload images ---
+    const totalFrames = 145; // inclusive 0–144
+    const images = [];
+    for (let i = 0; i < totalFrames; i++) {
+      const image = new Image();
+      image.src = `plots/${i}.png`;
+      images.push(image);
+    }
+
+    // --- Update image on slider move ---
     slider.addEventListener('input', () => {
       const frame = slider.value;
-      img.src = `plots/${frame}.png`;
+      img.src = images[frame].src;
     });
   </script>
+
+  <!-- insert the plot here -->
+
 </body>
 </html>
