@@ -37,7 +37,7 @@ jobs:
 
       - name: Build site
         run: |
-          python main.py
+          uv run main.py
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
