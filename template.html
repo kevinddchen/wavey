@@ -28,15 +28,15 @@
 </head>
 <body>
 
-  <img id="scrubImage" src="plots/0.png" alt="Scrubbed image" />
+  <img id="scrubImage" src="plots/0.png" alt="Significant wave height colormap" />
   <input type="range" id="slider" min="0" max="144" value="0" />
 
   <script>
     const slider = document.getElementById('slider');
     const img = document.getElementById('scrubImage');
 
-    // --- Preload images ---
-    const totalFrames = 145; // inclusive 0–144
+    // preload images
+    const totalFrames = 145;
     const images = [];
     for (let i = 0; i < totalFrames; i++) {
       const image = new Image();
@@ -44,7 +44,6 @@
       images.push(image);
     }
 
-    // --- Update image on slider move ---
     slider.addEventListener('input', () => {
       const frame = slider.value;
       img.src = images[frame].src;
