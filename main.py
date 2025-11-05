@@ -6,6 +6,7 @@ from enum import IntEnum
 from pathlib import Path
 from typing import NamedTuple
 
+import matplotlib
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -15,6 +16,9 @@ import pygrib
 import requests
 from mpl_toolkits.basemap import Basemap
 from tqdm import tqdm
+
+# Force non-interactive backend to keep consistency between local and github actions
+matplotlib.rcParams["backend"] = "agg"
 
 LOG = logging.getLogger(__name__)
 
@@ -42,6 +46,9 @@ MAX_WAVE_HEIGHT_FT = 12.0
 
 WAVE_DIRECTION_ARROW_SIZE = 0.01
 """Size of arrows indicating wave direction, in degrees lat/lon."""
+
+DPI = 100
+"""Matplotlib figure dpi."""
 
 
 class DataType(IntEnum):
@@ -310,7 +317,7 @@ def main(
     # Draw Breakwater graph
 
     LOG.info("Drawing swell graph")
-    fig, ax = plt.subplots(figsize=(6, 2))
+    fig, ax = plt.subplots(figsize=(9, 3), dpi=DPI)
 
     # NOTE: need to erase timezone info for mlpd3 to plot local times correctly
     x0 = analysis_date_pacific.replace(tzinfo=None)
@@ -323,15 +330,16 @@ def main(
     ax.legend(loc="upper right")
     ax.grid(linestyle=":")
 
+    plt.tight_layout()
     div_str = mpld3.fig_to_html(fig, figid="graph")
     template_html = Path("template.html").read_text()
-    out_html = template_html.replace("<!-- insert the plot here -->", div_str)
+    out_html = template_html.replace("<!-- insert swell graph here -->", div_str)
     (out_dir / "index.html").write_text(out_html)
 
     # Draw figure
 
     LOG.info("Drawing map frames")
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig, ax = plt.subplots(figsize=(8, 8), dpi=DPI)
     map = Basemap(
         projection="cyl",
         llcrnrlat=LAT_MIN,
