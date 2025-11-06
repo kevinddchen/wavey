@@ -327,6 +327,7 @@ def main(
 
     ax.set_ylim(0)
     ax.set_ylabel("Significant wave height (ft)")
+    ax.set_xlabel("Pacific Time")
     ax.legend(loc="upper right")
     ax.grid(linestyle=":")
 
@@ -371,7 +372,7 @@ def main(
         img.set_data(wave_height_ft[hour_i])
         update_arrows(arrow_heading_rad[hour_i], lats=lats, lons=lons, arrows=arrows, latlon_idxs=arrow_latlon_idxs)
 
-        plt.title(f"Significant wave height (ft) and primary wave direction\nHour {hour_i:03} ({pacific_time_str})")
+        plt.title(f"Significant wave height (ft) and primary wave direction\nHour {hour_i:03} ({pacific_time_str} PT)")
         plt.savefig(plot_dir / f"{hour_i}.png")
 
 
