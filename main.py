@@ -97,7 +97,7 @@ def download_most_recent_forecast_data(dir: Path) -> Path:
     """
 
     # TODO: figure out the most recently published GRIB file
-    url = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod/wr.20251104/mtr/06/CG3/mtr_nwps_CG3_20251104_0600.grib2"
+    url = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod/wr.20251105/mtr/06/CG3/mtr_nwps_CG3_20251105_0600.grib2"
 
     file_path = dir / os.path.basename(url)
     if file_path.exists():
