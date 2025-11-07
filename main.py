@@ -17,6 +17,8 @@ import requests
 from mpl_toolkits.basemap import Basemap
 from tqdm import tqdm
 
+from wavey.nwfs import get_most_recent_forecast
+
 # Force non-interactive backend to keep consistency between local and github actions
 matplotlib.rcParams["backend"] = "agg"
 
@@ -96,8 +98,7 @@ def download_most_recent_forecast_data(dir: Path) -> Path:
         Path to the GRIB file.
     """
 
-    # TODO: figure out the most recently published GRIB file
-    url = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod/wr.20251105/mtr/06/CG3/mtr_nwps_CG3_20251105_0600.grib2"
+    url = get_most_recent_forecast()
 
     file_path = dir / os.path.basename(url)
     if file_path.exists():
@@ -105,11 +106,11 @@ def download_most_recent_forecast_data(dir: Path) -> Path:
         return file_path
 
     LOG.info(f"Downloading '{url}' to '{file_path}'")
-    response = requests.get(url, stream=True)
-    response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+    r = requests.get(url, stream=True)
+    r.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
 
     with open(file_path, "wb") as file:
-        for chunk in response.iter_content(chunk_size=8192):
+        for chunk in r.iter_content(chunk_size=8192):
             file.write(chunk)
 
     return file_path
@@ -379,5 +380,5 @@ def main(
 if __name__ == "__main__":
     import tyro
 
-    logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(module)s: %(message)s")
+    logging.basicConfig(level=logging.INFO, format="[%(levelname)5s] [%(created)f] %(name)s: %(message)s")
     tyro.cli(main)
