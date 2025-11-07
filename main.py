@@ -324,7 +324,7 @@ def main(
     x0 = analysis_date_pacific.replace(tzinfo=None)
     x = [x0 + datetime.timedelta(hours=hour_i) for hour_i in range(NUM_FORECASTS)]
     for label, y in (("Breakwater", bw_wave_heights_ft), ("Monastery", mon_wave_heights_ft)):
-        ax.plot(x, y, label=label)
+        ax.plot(x, y, label=label)  # type: ignore[arg-type]
 
     ax.set_ylim(0)
     ax.set_ylabel("Significant wave height (ft)")

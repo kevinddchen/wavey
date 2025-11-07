@@ -19,9 +19,20 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "mypy",
     "pre-commit",
     "ruff",
+    "types-requests",
+    "types-tqdm",
 ]
+
+[[tool.mypy.overrides]]
+module = [
+    "mpl_toolkits.basemap",
+    "mpld3",
+    "pygrib",
+]
+ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 120
