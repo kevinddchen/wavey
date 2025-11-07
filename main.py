@@ -14,6 +14,7 @@ import mpld3
 import numpy as np
 import pygrib
 import requests
+from jinja2 import Environment, PackageLoader, select_autoescape
 from mpl_toolkits.basemap import Basemap
 from tqdm import tqdm
 
@@ -333,9 +334,11 @@ def main(
     ax.grid(linestyle=":")
 
     plt.tight_layout()
-    div_str = mpld3.fig_to_html(fig, figid="graph")
-    template_html = Path("template.html").read_text()
-    out_html = template_html.replace("<!-- insert swell graph here -->", div_str)
+    fig_div = mpld3.fig_to_html(fig, figid="graph")
+
+    env = Environment(loader=PackageLoader("wavey"), autoescape=select_autoescape())
+    template_html = env.get_template("index.html.j2")
+    out_html = template_html.render(swell_graph=fig_div)
     (out_dir / "index.html").write_text(out_html)
 
     # Draw figure
