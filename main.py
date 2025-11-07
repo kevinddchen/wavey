@@ -1,10 +1,10 @@
 import datetime
 import logging
 import os
-import zoneinfo
 from enum import IntEnum
 from pathlib import Path
 from typing import NamedTuple
+from zoneinfo import ZoneInfo
 
 import matplotlib
 import matplotlib.colors as mcolors
@@ -24,6 +24,9 @@ from wavey.nwfs import get_most_recent_forecast
 matplotlib.rcParams["backend"] = "agg"
 
 LOG = logging.getLogger(__name__)
+
+TZ_UTC = ZoneInfo("UTC")
+TZ_PACIFIC = ZoneInfo("America/Los_Angeles")
 
 FEET_PER_METER = 3.28
 
@@ -148,7 +151,7 @@ def read_forecast_data(grbs: pygrib.open, data_type: DataType) -> ForecastData:
     assert lats is not None
     assert lons is not None
     assert analysis_date is not None
-    analysis_date_utc = analysis_date.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
+    analysis_date_utc = analysis_date.replace(tzinfo=TZ_UTC)
     data_collated = np.ma.stack(data_list)
 
     return ForecastData(
@@ -163,12 +166,11 @@ def utc_to_pt(dt: datetime.datetime) -> datetime.datetime:
     """Convert UTC to pacific time."""
 
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=datetime.timezone.utc)
+        dt = dt.replace(tzinfo=TZ_UTC)
     else:
         assert dt.utcoffset() == datetime.timedelta(), "datetime is not UTC"
 
-    pdt_tz = zoneinfo.ZoneInfo("America/Los_Angeles")
-    return dt.astimezone(tz=pdt_tz)
+    return dt.astimezone(tz=TZ_PACIFIC)
 
 
 def draw_arrows(
@@ -278,7 +280,6 @@ def main(
         out_dir: Path to output directory.
     """
 
-    LOG.info(f"Saving output assets to '{out_dir}'")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Download data, if needed
@@ -336,11 +337,6 @@ def main(
     plt.tight_layout()
     fig_div = mpld3.fig_to_html(fig, figid="graph")
 
-    env = Environment(loader=PackageLoader("wavey"), autoescape=select_autoescape())
-    template_html = env.get_template("index.html.j2")
-    out_html = template_html.render(swell_graph=fig_div)
-    (out_dir / "index.html").write_text(out_html)
-
     # Draw figure
 
     LOG.info("Drawing map frames")
@@ -371,13 +367,30 @@ def main(
     plot_dir.mkdir(parents=True, exist_ok=True)
     for hour_i in tqdm(range(NUM_FORECASTS)):
         pacific_time = analysis_date_pacific + datetime.timedelta(hours=hour_i)
-        pacific_time_str = pacific_time.strftime("%a %b %d %H:%M")
+        pacific_time_str = pacific_time.strftime("%a %b %d %H:%M PT")
 
         img.set_data(wave_height_ft[hour_i])
         update_arrows(arrow_heading_rad[hour_i], lats=lats, lons=lons, arrows=arrows, latlon_idxs=arrow_latlon_idxs)
 
-        plt.title(f"Significant wave height (ft) and primary wave direction\nHour {hour_i:03} ({pacific_time_str} PT)")
+        plt.title(f"Significant wave height (ft) and primary wave direction\nHour {hour_i:03} ({pacific_time_str})")
         plt.savefig(plot_dir / f"{hour_i}.png")
+
+    # Get current time
+
+    now_utc = datetime.datetime.now(tz=TZ_UTC)
+    now_pacific = now_utc.astimezone(tz=TZ_PACIFIC)
+    now_pacific_str = now_pacific.strftime("%a %b %d %H:%M PT")
+
+    # Export HTML
+
+    LOG.info(f"Saving webpage to '{out_dir}'")
+    env = Environment(loader=PackageLoader("wavey"), autoescape=select_autoescape())
+    template_html = env.get_template("index.html.j2")
+    out_html = template_html.render(
+        swell_graph=fig_div,
+        last_updated=now_pacific_str,
+    )
+    (out_dir / "index.html").write_text(out_html)
 
 
 if __name__ == "__main__":
