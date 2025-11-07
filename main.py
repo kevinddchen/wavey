@@ -107,7 +107,7 @@ def download_most_recent_forecast_data(dir: Path) -> Path:
 
     LOG.info(f"Downloading '{url}' to '{file_path}'")
     r = requests.get(url, stream=True)
-    r.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+    r.raise_for_status()
 
     with open(file_path, "wb") as file:
         for chunk in r.iter_content(chunk_size=8192):
