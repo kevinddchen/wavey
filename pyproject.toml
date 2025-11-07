@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "basemap",
     "basemap-data-hires",
+    "beautifulsoup4",
     "matplotlib",
     "mpld3",
     "numpy",
