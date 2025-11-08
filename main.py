@@ -1,6 +1,5 @@
 import datetime
 import logging
-import os
 from enum import IntEnum
 from pathlib import Path
 from typing import NamedTuple
@@ -13,12 +12,11 @@ import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 import pygrib
-import requests
 from jinja2 import Environment, PackageLoader, select_autoescape
 from mpl_toolkits.basemap import Basemap
 from tqdm import tqdm
 
-from wavey.nwfs import get_most_recent_forecast
+from wavey.nwfs import download_forecast, get_most_recent_forecast
 
 # Force non-interactive backend to keep consistency between local and github actions
 matplotlib.rcParams["backend"] = "agg"
@@ -92,35 +90,6 @@ class ForecastData(NamedTuple):
     """Array with shape (LATS, LONS)."""
     analysis_date_utc: datetime.datetime
     """Date and time of analysis, i.e. start of forecast, in UTC."""
-
-
-def download_most_recent_forecast_data(dir: Path) -> Path:
-    """
-    Downloads the most recent NWFS GRIB file and returns the path.
-
-    Args:
-        dir: Directory to save the file in.
-
-    Returns:
-        Path to the GRIB file.
-    """
-
-    url = get_most_recent_forecast()
-
-    file_path = dir / os.path.basename(url)
-    if file_path.exists():
-        LOG.info(f"'{file_path}' already exists. Skipping download")
-        return file_path
-
-    LOG.info(f"Downloading '{url}' to '{file_path}'")
-    r = requests.get(url, stream=True)
-    r.raise_for_status()
-
-    with open(file_path, "wb") as file:
-        for chunk in r.iter_content(chunk_size=8192):
-            file.write(chunk)
-
-    return file_path
 
 
 def read_forecast_data(grbs: pygrib.open, data_type: DataType) -> ForecastData:
@@ -279,7 +248,7 @@ def main(
     Args:
         grib_path: Path to GRIB file. These are downloaded from:
             https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod/. If none,
-            will download the most recent one.
+            will download the most recent one to the current directory.
         out_dir: Path to output directory.
     """
 
@@ -288,8 +257,8 @@ def main(
     # Download data, if needed
 
     if grib_path is None:
-        dir = Path(".")  # download to current directory
-        grib_path = download_most_recent_forecast_data(dir)
+        most_recent_forecast = get_most_recent_forecast()
+        grib_path = download_forecast(most_recent_forecast)
 
     # Extract data
 
@@ -338,7 +307,7 @@ def main(
     ax.grid(linestyle=":")
 
     plt.tight_layout()
-    fig_div = mpld3.fig_to_html(fig, figid="graph")
+    fig_div = mpld3.fig_to_html(fig)
 
     # Draw figure
 
