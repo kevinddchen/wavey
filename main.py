@@ -28,6 +28,9 @@ LOG = logging.getLogger(__name__)
 TZ_UTC = ZoneInfo("UTC")
 TZ_PACIFIC = ZoneInfo("America/Los_Angeles")
 
+DATETIME_FORMAT = "%a %b %d %H:%M (Pacific)"
+"""Format used when formatting datetimes."""
+
 FEET_PER_METER = 3.28
 
 NUM_FORECASTS = 145  # 1 + 24 * 6 hours
@@ -330,7 +333,7 @@ def main(
 
     ax.set_ylim(0)
     ax.set_ylabel("Significant wave height (ft)")
-    ax.set_xlabel("Pacific Time")
+    ax.set_xlabel("Time (Pacific)")
     ax.legend(loc="upper right")
     ax.grid(linestyle=":")
 
@@ -367,19 +370,19 @@ def main(
     plot_dir.mkdir(parents=True, exist_ok=True)
     for hour_i in tqdm(range(NUM_FORECASTS)):
         pacific_time = analysis_date_pacific + datetime.timedelta(hours=hour_i)
-        pacific_time_str = pacific_time.strftime("%a %b %d %H:%M PT")
+        pacific_time_str = pacific_time.strftime(DATETIME_FORMAT)
 
         img.set_data(wave_height_ft[hour_i])
         update_arrows(arrow_heading_rad[hour_i], lats=lats, lons=lons, arrows=arrows, latlon_idxs=arrow_latlon_idxs)
 
-        plt.title(f"Significant wave height (ft) and primary wave direction\nHour {hour_i:03} ({pacific_time_str})")
+        plt.title(f"Significant wave height (ft) and primary wave direction\nHour {hour_i:03} -- {pacific_time_str}")
         plt.savefig(plot_dir / f"{hour_i}.png")
 
     # Get current time
 
     now_utc = datetime.datetime.now(tz=TZ_UTC)
     now_pacific = now_utc.astimezone(tz=TZ_PACIFIC)
-    now_pacific_str = now_pacific.strftime("%a %b %d %H:%M PT")
+    now_pacific_str = now_pacific.strftime(DATETIME_FORMAT)
 
     # Export HTML
 
