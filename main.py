@@ -1,10 +1,6 @@
 import datetime
 import logging
-import os
-from enum import IntEnum
 from pathlib import Path
-from typing import NamedTuple
-from zoneinfo import ZoneInfo
 
 import matplotlib
 import matplotlib.colors as mcolors
@@ -13,34 +9,18 @@ import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 import pygrib
-import requests
 from jinja2 import Environment, PackageLoader, select_autoescape
 from mpl_toolkits.basemap import Basemap
 from tqdm import tqdm
 
-from wavey.nwfs import get_most_recent_forecast
+from wavey.common import DATETIME_FORMAT, FEET_PER_METER, LAT_MAX, LAT_MIN, LON_MAX, LON_MIN, TZ_PACIFIC, TZ_UTC
+from wavey.grib import NUM_DATA_POINTS, ForecastType, read_forecast_data
+from wavey.nwfs import download_forecast, get_most_recent_forecast
 
 # Force non-interactive backend to keep consistency between local and github actions
 matplotlib.rcParams["backend"] = "agg"
 
 LOG = logging.getLogger(__name__)
-
-TZ_UTC = ZoneInfo("UTC")
-TZ_PACIFIC = ZoneInfo("America/Los_Angeles")
-
-DATETIME_FORMAT = "%a %b %d %H:%M (Pacific)"
-"""Format used when formatting datetimes."""
-
-FEET_PER_METER = 3.28
-
-NUM_FORECASTS = 145  # 1 + 24 * 6 hours
-"""Number of forecasts for each data type in the NWFS GRIB file."""
-
-# Lat/lon bounding box for zoom-in on Monterey peninsula
-LAT_MIN = 36.4  # 36.2
-LAT_MAX = 36.7  # 37.0
-LON_MIN = 237.9  # 237.8
-LON_MAX = 238.2  # 238.3
 
 # Location of San Carlos Beach (aka Breakwater)
 BREAKWATER_LAT = 36.611
@@ -58,111 +38,6 @@ WAVE_DIRECTION_ARROW_SIZE = 0.01
 
 DPI = 100
 """Matplotlib figure dpi."""
-
-
-class DataType(IntEnum):
-    """Data types in the NWFS GRIB file, in order."""
-
-    WaveHeight = 0
-    """Significant height of combined wind waves and swell (m)"""
-    WaveDirection = 1
-    """Primary wave direction (deg)"""
-    WavePeriod = 2
-    """Primary wave mean period (s)"""
-    SwellHeight = 3
-    """Significant height of total swell (m)"""
-    WindDirection = 4
-    """Wind direction (deg)"""
-    WindSpeed = 5
-    """Wind speed (m/s)"""
-    SeaSurfaceHeight = 6
-    """Sea surface height (m)"""
-    CurrentDirection = 7
-    """Current direction (deg)"""
-    CurrentSpeed = 8
-    """Current speed (m/s)"""
-
-
-class ForecastData(NamedTuple):
-    data: np.ma.MaskedArray
-    """Array with shape (NUM_FORECASTS, LATS, LONS). May contain missing values."""
-    lats: np.ndarray
-    """Array with shape (LATS, LONS)."""
-    lons: np.ndarray
-    """Array with shape (LATS, LONS)."""
-    analysis_date_utc: datetime.datetime
-    """Date and time of analysis, i.e. start of forecast, in UTC."""
-
-
-def download_most_recent_forecast_data(dir: Path) -> Path:
-    """
-    Downloads the most recent NWFS GRIB file and returns the path.
-
-    Args:
-        dir: Directory to save the file in.
-
-    Returns:
-        Path to the GRIB file.
-    """
-
-    url = get_most_recent_forecast()
-
-    file_path = dir / os.path.basename(url)
-    if file_path.exists():
-        LOG.info(f"'{file_path}' already exists. Skipping download")
-        return file_path
-
-    LOG.info(f"Downloading '{url}' to '{file_path}'")
-    r = requests.get(url, stream=True)
-    r.raise_for_status()
-
-    with open(file_path, "wb") as file:
-        for chunk in r.iter_content(chunk_size=8192):
-            file.write(chunk)
-
-    return file_path
-
-
-def read_forecast_data(grbs: pygrib.open, data_type: DataType) -> ForecastData:
-    """
-    Read forecast data from Monterey Bay NWFS GRIB file, zoomed-in near the
-    peninsula (see {LAT|LON}_{MIN|MAX} values).
-
-    Args:
-        grbs: GRIB file.
-        data_type: Type of data to read.
-
-    Returns:
-        Forecast data of the specified type.
-    """
-
-    grbs.seek(data_type * NUM_FORECASTS)  # message offset
-
-    data_list: list[np.ma.MaskedArray] = []
-    lats: np.ndarray | None = None
-    lons: np.ndarray | None = None
-    analysis_date: datetime.datetime | None = None
-
-    for grb in grbs.read(NUM_FORECASTS):
-        data, lats, lons = grb.data(lat1=LAT_MIN, lat2=LAT_MAX, lon1=LON_MIN, lon2=LON_MAX)
-        data_list.append(data)
-
-        if analysis_date is None:
-            analysis_date = grb.analDate
-
-    # assertions will fail if no messages were read
-    assert lats is not None
-    assert lons is not None
-    assert analysis_date is not None
-    analysis_date_utc = analysis_date.replace(tzinfo=TZ_UTC)
-    data_collated = np.ma.stack(data_list)
-
-    return ForecastData(
-        data=data_collated,
-        lats=lats,
-        lons=lons,
-        analysis_date_utc=analysis_date_utc,
-    )
 
 
 def utc_to_pt(dt: datetime.datetime) -> datetime.datetime:
@@ -279,7 +154,7 @@ def main(
     Args:
         grib_path: Path to GRIB file. These are downloaded from:
             https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod/. If none,
-            will download the most recent one.
+            will download the most recent one to the current directory.
         out_dir: Path to output directory.
     """
 
@@ -288,15 +163,15 @@ def main(
     # Download data, if needed
 
     if grib_path is None:
-        dir = Path(".")  # download to current directory
-        grib_path = download_most_recent_forecast_data(dir)
+        most_recent_forecast = get_most_recent_forecast()
+        grib_path = download_forecast(most_recent_forecast)
 
     # Extract data
 
     LOG.info(f"Reading '{grib_path}'")
     with pygrib.open(grib_path) as grbs:
-        wave_height_forecast = read_forecast_data(grbs, DataType.WaveHeight)
-        wave_direction_forecast = read_forecast_data(grbs, DataType.WaveDirection)
+        wave_height_forecast = read_forecast_data(grbs, ForecastType.WaveHeight)
+        wave_direction_forecast = read_forecast_data(grbs, ForecastType.WaveDirection)
 
     wave_height_ft = wave_height_forecast.data * FEET_PER_METER
     wave_direction_rad = wave_direction_forecast.data * np.pi / 180
@@ -327,7 +202,7 @@ def main(
 
     # NOTE: need to erase timezone info for mlpd3 to plot local times correctly
     x0 = analysis_date_pacific.replace(tzinfo=None)
-    x = [x0 + datetime.timedelta(hours=hour_i) for hour_i in range(NUM_FORECASTS)]
+    x = [x0 + datetime.timedelta(hours=hour_i) for hour_i in range(NUM_DATA_POINTS)]
     for label, y in (("Breakwater", bw_wave_heights_ft), ("Monastery", mon_wave_heights_ft)):
         ax.plot(x, y, label=label)  # type: ignore[arg-type]
 
@@ -338,7 +213,7 @@ def main(
     ax.grid(linestyle=":")
 
     plt.tight_layout()
-    fig_div = mpld3.fig_to_html(fig, figid="graph")
+    fig_div = mpld3.fig_to_html(fig)
 
     # Draw figure
 
@@ -368,7 +243,7 @@ def main(
 
     plot_dir = out_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
-    for hour_i in tqdm(range(NUM_FORECASTS)):
+    for hour_i in tqdm(range(NUM_DATA_POINTS)):
         pacific_time = analysis_date_pacific + datetime.timedelta(hours=hour_i)
         pacific_time_str = pacific_time.strftime(DATETIME_FORMAT)
 

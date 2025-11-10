@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
@@ -10,6 +11,8 @@ LOG = logging.getLogger(__name__)
 _BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod"
 _MTR = "mtr"
 _CG3 = "CG3"
+
+_CHUNK_SIZE = 8192
 
 
 def get_most_recent_forecast() -> str:
@@ -46,8 +49,9 @@ def get_most_recent_forecast() -> str:
         if most_recent_date is not None:
             break
 
-    if most_recent_date is None or most_recent_time is None:
-        raise RuntimeError("Unexpected: could not find any forecasts for Monterey bay.")
+    assert most_recent_date is not None and most_recent_time is not None, (
+        "Unexpected: could not find any forecasts for Monterey bay."
+    )
 
     # parse date and time
     date_match = re.search(r"\d{8}", most_recent_date)
@@ -138,6 +142,38 @@ def _check_time(date: str, time: str) -> bool:
     url = os.path.join(_BASE_URL, date, _MTR, time, _CG3)
     r = requests.get(url)
     return r.ok
+
+
+def download_forecast(url: str, dir: Path | None = None) -> Path:
+    """
+    Download NWFS forecast data to disk.
+
+    Args:
+        url: URL to the GRIB file.
+        dir: Directory to save the file in. If none, will download to the
+            current directory.
+
+    Returns:
+        Path to the GRIB file.
+    """
+
+    if dir is None:
+        dir = Path(".")
+
+    file_path = dir / os.path.basename(url)
+    if file_path.exists():
+        LOG.info(f"'{file_path}' already exists. Skipping download")
+        return file_path
+
+    LOG.info(f"Downloading '{url}' to '{file_path}'")
+    r = requests.get(url, stream=True)
+    r.raise_for_status()
+
+    with open(file_path, "wb") as file:
+        for chunk in r.iter_content(chunk_size=_CHUNK_SIZE):
+            file.write(chunk)
+
+    return file_path
 
 
 if __name__ == "__main__":
