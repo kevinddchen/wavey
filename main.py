@@ -225,7 +225,7 @@ def main(
         llcrnrlon=LON_MIN,
         urcrnrlat=LAT_MAX,
         urcrnrlon=LON_MAX,
-        resolution="h",
+        resolution="f",
         ax=ax,
     )
     map.drawcoastlines()
