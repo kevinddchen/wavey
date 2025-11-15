@@ -112,7 +112,7 @@ def main(
     # Draw figure
 
     fig = plt.figure(figsize=(8, 10), dpi=DPI)
-    gs = fig.add_gridspec(2, 2, height_ratios=[2, 1])
+    gs = fig.add_gridspec(2, 2, height_ratios=[3, 1])
 
     LOG.info("Drawing Monterey bay map")
     ax_main = fig.add_subplot(gs[0, :])
@@ -162,7 +162,8 @@ def main(
     )
     ax_mon.set_title("Monastery")
 
-    plt.colorbar(map_main.img, orientation="vertical", label="(ft)")
+    plt.tight_layout()
+    plt.colorbar(map_main.img, orientation="vertical", label="(ft)", shrink=0.8)
 
     plot_dir = out_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
@@ -174,9 +175,7 @@ def main(
         map_bw.update(hour_i)
         map_mon.update(hour_i)
 
-        ax_main.set_title(
-            f"Significant wave height (ft) and primary wave direction\nHour {hour_i:03} -- {pacific_time_str}"
-        )
+        ax_main.set_title(f"Significant wave height (ft) and wave direction\nHour {hour_i:03} -- {pacific_time_str}")
         plt.savefig(plot_dir / f"{hour_i}.png")
 
     # Get current time

@@ -209,6 +209,8 @@ class Map:
             )
 
     def update(self, hour_i: int) -> None:
+        """Update map to the given hour (index)."""
+
         if self.wave_height_ft is not None:
             self.img.set_data(self.wave_height_ft[hour_i])
 
