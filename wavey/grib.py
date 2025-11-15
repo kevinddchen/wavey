@@ -5,10 +5,22 @@ from typing import NamedTuple
 import numpy as np
 import pygrib
 
-from wavey.common import LAT_MAX, LAT_MIN, LON_MAX, LON_MIN, TZ_UTC
+from wavey.common import TZ_UTC
 
-NUM_DATA_POINTS = 145  # 1 + 24 * 6 hours
-"""Number of data points for each forecast type in the NWFS GRIB file."""
+NUM_DATA_POINTS = 145
+"""Number of data points for each forecast type in the NWFS GRIB file (1 + 24 * 6 days)."""
+
+NUM_LATS = 178
+"""
+Number of equally spaced latitudes for the Monterey bay forecast data,
+from 36.2 to 37.0 degs (each increment is 0.00452 deg).
+"""
+
+NUM_LONS = 90
+"""
+Number of equally spaced longitudes for the Monterey bay forecast data,
+from 237.8 to 238.3 degs (each increment is 0.00562 deg).
+"""
 
 
 class ForecastType(IntEnum):
@@ -38,19 +50,18 @@ class ForecastData(NamedTuple):
     """Data for a single forecast type from the NWFS GRIB file."""
 
     data: np.ma.MaskedArray
-    """Array with shape (NUM_DATA_POINTS, LATS, LONS). May contain missing values."""
+    """Array with shape (NUM_DATA_POINTS, NUM_LATS, NUM_LONS). May contain missing values."""
     lats: np.ndarray
-    """Array with shape (LATS, LONS)."""
+    """Array with shape (NUM_LATS, NUM_LONS)."""
     lons: np.ndarray
-    """Array with shape (LATS, LONS)."""
+    """Array with shape (NUM_LATS, NUM_LONS)."""
     analysis_date_utc: datetime.datetime
     """Date and time of analysis, i.e. start of forecast, in UTC."""
 
 
 def read_forecast_data(grbs: pygrib.open, forecast_type: ForecastType) -> ForecastData:
     """
-    Read forecast data from Monterey Bay NWFS GRIB file, zoomed-in near the
-    peninsula (see {LAT|LON}_{MIN|MAX} values).
+    Read forecast data from Monterey Bay NWFS GRIB file.
 
     Args:
         grbs: GRIB file.
@@ -68,7 +79,7 @@ def read_forecast_data(grbs: pygrib.open, forecast_type: ForecastType) -> Foreca
     analysis_date: datetime.datetime | None = None
 
     for grb in grbs.read(NUM_DATA_POINTS):
-        data, lats, lons = grb.data(lat1=LAT_MIN, lat2=LAT_MAX, lon1=LON_MIN, lon2=LON_MAX)
+        data, lats, lons = grb.data()
         data_list.append(data)
 
         if analysis_date is None:
