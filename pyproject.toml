@@ -12,7 +12,7 @@ dependencies = [
     "matplotlib",
     "mpld3",
     "numpy",
-    "pillow",
+    "pillow>=9.1",
     "pygrib",
     "requests",
     "tqdm",

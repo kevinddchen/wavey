@@ -60,7 +60,7 @@ def save_fig_to_png(path: Path) -> None:
     plt.savefig(bts, format="png")
 
     with PIL.Image.open(bts) as img:
-        img2 = img.convert("RGB").convert("P", palette=PIL.Image.ADAPTIVE)
+        img2 = img.convert("RGB").convert("P", palette=PIL.Image.Palette.ADAPTIVE)
         img2.save(path, format="png")
 
 
