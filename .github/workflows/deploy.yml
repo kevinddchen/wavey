@@ -38,7 +38,7 @@ jobs:
 
       - name: Build site
         run: |
-          uv run main.py
+          uv run main.py --resolution f
         env:
           TQDM_DISABLE: 1
 

@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, NamedTuple
+from typing import Iterable, Literal, NamedTuple
 
 import matplotlib
 import matplotlib.colors as mcolors
@@ -125,6 +125,9 @@ def _update_arrows(
         arrow.arrow.set_data(x=arrow_start[0], y=arrow_start[1], dx=dir_vec[0], dy=dir_vec[1])
 
 
+RESOLUTION = Literal["c", "l", "i", "h", "f"]
+
+
 class Map:
     def __init__(
         self,
@@ -137,6 +140,7 @@ class Map:
         lat_max_idx: int,
         lon_min_idx: int,
         lon_max_idx: int,
+        resolution: RESOLUTION = "h",
         draw_arrows_length: float = DEFAULT_ARROW_LENGTH,
         draw_arrows_stride: int = 3,
     ) -> None:
@@ -156,6 +160,8 @@ class Map:
             lat_max_idx: For zooming-in to a smaller lat/lon bounding box.
             lon_min_idx: For zooming-in to a smaller lat/lon bounding box.
             lon_max_idx: For zooming-in to a smaller lat/lon bounding box.
+            resolution: Resolution of the coastline map. Options are crude,
+                low, intermediate, high, and full.
             draw_arrows_length: Length of arrows.
             draw_arrows_stride: Create an arrow for every multiple of `stride`
                 indicies.
@@ -187,7 +193,7 @@ class Map:
             llcrnrlon=lon_min,
             urcrnrlat=lat_max,
             urcrnrlon=lon_max,
-            resolution="f",
+            resolution=resolution,
             ax=ax,
         )
         map.drawcoastlines()

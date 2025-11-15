@@ -1,4 +1,5 @@
 import datetime
+import io
 import logging
 from pathlib import Path
 
@@ -6,13 +7,14 @@ import matplotlib
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
+import PIL
 import pygrib
 from jinja2 import Environment, PackageLoader, select_autoescape
 from tqdm import tqdm
 
 from wavey.common import DATETIME_FORMAT, FEET_PER_METER, TZ_PACIFIC, TZ_UTC, setup_logging
 from wavey.grib import NUM_DATA_POINTS, ForecastType, read_forecast_data
-from wavey.map import DEFAULT_ARROW_LENGTH, Map
+from wavey.map import DEFAULT_ARROW_LENGTH, RESOLUTION, Map
 from wavey.nwfs import download_forecast, get_most_recent_forecast
 
 # Force non-interactive backend to keep consistency between local and github actions
@@ -43,10 +45,30 @@ def utc_to_pt(dt: datetime.datetime) -> datetime.datetime:
     return dt.astimezone(tz=TZ_PACIFIC)
 
 
+def save_fig_to_png(path: Path) -> None:
+    """
+    Save matplotlib figure to PNG file.
+
+    We perform a bit of optimization to make the output filesize smaller
+    without sacrificing quality.
+
+    Args:
+        path: Path to output PNG file.
+    """
+
+    bts = io.BytesIO()
+    plt.savefig(bts, format="png")
+
+    with PIL.Image.open(bts) as img:
+        img2 = img.convert("RGB").convert("P", palette=PIL.Image.ADAPTIVE)
+        img2.save(path, format="png")
+
+
 def main(
     grib_path: Path | None = None,
     /,
     out_dir: Path = Path("_site"),
+    resolution: RESOLUTION = "h",
 ) -> None:
     """
     Create plots for significant wave height.
@@ -56,7 +78,12 @@ def main(
             https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod/. If none,
             will download the most recent one to the current directory.
         out_dir: Path to output directory.
+        resolution: Resolution of the coastline map. Options are crude, low,
+            intermediate, high, and full.
     """
+
+    if resolution != "f":
+        LOG.warning("Not drawing full resolution coastlines. Use the flag '--resolution f'")
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -126,6 +153,7 @@ def main(
         lat_max_idx=110,
         lon_min_idx=20,
         lon_max_idx=70,
+        resolution=resolution,
     )
 
     LOG.info("Drawing Breakwater map")
@@ -140,6 +168,7 @@ def main(
         lat_max_idx=BREAKWATER_LAT_IDX + 3,
         lon_min_idx=BREAKWATER_LON_IDX - 2,
         lon_max_idx=BREAKWATER_LON_IDX + 3,
+        resolution=resolution,
         draw_arrows_length=DEFAULT_ARROW_LENGTH / 3,
         draw_arrows_stride=1,
     )
@@ -157,6 +186,7 @@ def main(
         lat_max_idx=MONASTERY_LAT_IDX + 4,
         lon_min_idx=MONASTERY_LON_IDX - 3,
         lon_max_idx=MONASTERY_LON_IDX + 2,
+        resolution=resolution,
         draw_arrows_length=DEFAULT_ARROW_LENGTH / 3,
         draw_arrows_stride=1,
     )
@@ -176,7 +206,7 @@ def main(
         map_mon.update(hour_i)
 
         ax_main.set_title(f"Significant wave height (ft) and wave direction\nHour {hour_i:03} -- {pacific_time_str}")
-        plt.savefig(plot_dir / f"{hour_i}.png")
+        save_fig_to_png(plot_dir / f"{hour_i}.png")
 
     # Get current time
 
