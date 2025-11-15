@@ -6,6 +6,8 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
+from wavey.common import setup_logging
+
 LOG = logging.getLogger(__name__)
 
 _BASE_URL = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod"
@@ -177,6 +179,5 @@ def download_forecast(url: str, dir: Path | None = None) -> Path:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="[%(levelname)5s] [%(created)f] %(name)s: %(message)s")
-
+    setup_logging()
     get_most_recent_forecast()

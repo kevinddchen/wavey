@@ -3,18 +3,16 @@ import logging
 from pathlib import Path
 
 import matplotlib
-import matplotlib.colors as mcolors
-import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 import pygrib
 from jinja2 import Environment, PackageLoader, select_autoescape
-from mpl_toolkits.basemap import Basemap
 from tqdm import tqdm
 
-from wavey.common import DATETIME_FORMAT, FEET_PER_METER, LAT_MAX, LAT_MIN, LON_MAX, LON_MIN, TZ_PACIFIC, TZ_UTC
+from wavey.common import DATETIME_FORMAT, FEET_PER_METER, TZ_PACIFIC, TZ_UTC, setup_logging
 from wavey.grib import NUM_DATA_POINTS, ForecastType, read_forecast_data
+from wavey.map import DEFAULT_ARROW_LENGTH, Map
 from wavey.nwfs import download_forecast, get_most_recent_forecast
 
 # Force non-interactive backend to keep consistency between local and github actions
@@ -23,18 +21,12 @@ matplotlib.rcParams["backend"] = "agg"
 LOG = logging.getLogger(__name__)
 
 # Location of San Carlos Beach (aka Breakwater)
-BREAKWATER_LAT = 36.611
-BREAKWATER_LON = 238.108
+BREAKWATER_LAT_IDX = 91  # 36.61132
+BREAKWATER_LON_IDX = 55  # 238.10899
 
-# Location of San Carlos Beach (aka Breakwater)
-MONASTERY_LAT = 36.525
-MONASTERY_LON = 238.069
-
-MAX_WAVE_HEIGHT_FT = 12.0
-"""The maximum value in the wave height colormap."""
-
-WAVE_DIRECTION_ARROW_SIZE = 0.01
-"""Size of arrows indicating wave direction, in degrees lat/lon."""
+# Location of Monastery Beach
+MONASTERY_LAT_IDX = 72  # 36.52544
+MONASTERY_LON_IDX = 48  # 238.06966
 
 DPI = 100
 """Matplotlib figure dpi."""
@@ -49,98 +41,6 @@ def utc_to_pt(dt: datetime.datetime) -> datetime.datetime:
         assert dt.utcoffset() == datetime.timedelta(), "datetime is not UTC"
 
     return dt.astimezone(tz=TZ_PACIFIC)
-
-
-def draw_arrows(
-    headings_rad: np.ma.MaskedArray,
-    lats: np.ndarray,
-    lons: np.ndarray,
-    margin: int = 1,
-    stride: int = 3,
-) -> tuple[list[mpatches.FancyArrow], list[tuple[int, int]]]:
-    """
-    Draw the initial arrows.
-
-    Args:
-        headings_rad: Arrow headings, with shape (LATS, LONS). May contain
-            missing values.
-        lats: Arrow center latitudes. Array with shape (LATS, LONS).
-        lons: Arrow center longitudes. Array with shape (LATS, LONS).
-        margin: Omit the first and last `margin` indices.
-        stride: Create an arrow for every multiple of `stride` indicies.
-
-    Returns:
-        Tuple of `matplotlib.patches.FancyArrow` instances and the
-        corresponding lat/lon indices.
-    """
-
-    arrows: list[mpatches.FancyArrow] = []
-    latlon_idxs: list[tuple[int, int]] = []
-
-    for lat_idx in range(margin, len(lats[..., 0]) - margin, stride):
-        for lon_idx in range(margin, len(lons[0]) - margin, stride):
-            heading_rad = headings_rad[lat_idx, lon_idx]
-            if np.ma.is_masked(heading_rad):
-                continue
-
-            unit_vec = np.array((np.sin(heading_rad), np.cos(heading_rad)))
-            dir_vec = unit_vec * WAVE_DIRECTION_ARROW_SIZE
-
-            lat = lats[lat_idx, 0]
-            lon = lons[0, lon_idx]
-
-            arrow_center = np.array((lon, lat))
-            arrow_start = arrow_center - 0.5 * dir_vec
-
-            arrow = plt.arrow(
-                *arrow_start,
-                *dir_vec,
-                color="black",
-                width=0.0,
-                head_width=0.003,
-                length_includes_head=True,
-            )
-            arrows.append(arrow)
-            latlon_idxs.append((lat_idx, lon_idx))
-
-    return arrows, latlon_idxs
-
-
-def update_arrows(
-    headings_rad: np.ma.MaskedArray,
-    lats: np.ndarray,
-    lons: np.ndarray,
-    arrows: list[mpatches.FancyArrow],
-    latlon_idxs: list[tuple[int, int]],
-) -> None:
-    """
-    Update the arrow directions.
-
-    Args:
-        headings_rad: Arrow headings, with shape (LATS, LONS). May contain
-            missing values.
-        lats: Arrow center latitudes. Array with shape (LATS, LONS).
-        lons: Arrow center longitudes. Array with shape (LATS, LONS).
-        arrows: The `matplotlib.patches.FancyArrow` instances.
-        latlon_idxs: The lat/lon indices of the arrows.
-    """
-
-    for arrow, latlon_idx in zip(arrows, latlon_idxs, strict=True):
-        lat_idx, lon_idx = latlon_idx
-
-        heading_rad = headings_rad[lat_idx, lon_idx]
-        assert not np.ma.is_masked(heading_rad)
-
-        unit_vec = np.array((np.sin(heading_rad), np.cos(heading_rad)))
-        dir_vec = unit_vec * WAVE_DIRECTION_ARROW_SIZE
-
-        lat = lats[lat_idx, 0]
-        lon = lons[0, lon_idx]
-
-        arrow_center = np.array((lon, lat))
-        arrow_start = arrow_center - 0.5 * dir_vec
-
-        arrow.set_data(x=arrow_start[0], y=arrow_start[1], dx=dir_vec[0], dy=dir_vec[1])
 
 
 def main(
@@ -181,18 +81,12 @@ def main(
 
     # Get Breakwater data
 
-    bw_lat_idx = lats[..., 0].searchsorted(BREAKWATER_LAT)
-    bw_lon_idx = lons[0].searchsorted(BREAKWATER_LON)
-
-    bw_wave_heights_ft = wave_height_ft[..., bw_lat_idx, bw_lon_idx]
+    bw_wave_heights_ft = wave_height_ft[..., BREAKWATER_LAT_IDX, BREAKWATER_LON_IDX]
     assert not np.ma.is_masked(bw_wave_heights_ft), "Unexpected: Breakwater data contains masked points"
 
     # Get Monastery data
 
-    mon_lat_idx = lats[..., 0].searchsorted(MONASTERY_LAT)
-    mon_lon_idx = lons[0].searchsorted(MONASTERY_LON)
-
-    mon_wave_heights_ft = wave_height_ft[..., mon_lat_idx, mon_lon_idx]
+    mon_wave_heights_ft = wave_height_ft[..., MONASTERY_LAT_IDX, MONASTERY_LON_IDX]
     assert not np.ma.is_masked(mon_wave_heights_ft), "Unexpected: Monastery data contains masked points"
 
     # Draw Breakwater graph
@@ -217,29 +111,59 @@ def main(
 
     # Draw figure
 
-    LOG.info("Drawing map frames")
-    fig, ax = plt.subplots(figsize=(8, 8), dpi=DPI)
-    map = Basemap(
-        projection="cyl",
-        llcrnrlat=LAT_MIN,
-        llcrnrlon=LON_MIN,
-        urcrnrlat=LAT_MAX,
-        urcrnrlon=LON_MAX,
-        resolution="f",
-        ax=ax,
-    )
-    map.drawcoastlines()
+    fig = plt.figure(figsize=(8, 10), dpi=DPI)
+    gs = fig.add_gridspec(2, 2, height_ratios=[3, 1])
 
-    img = map.imshow(
-        wave_height_ft[0],
-        cmap="jet",
-        norm=mcolors.Normalize(vmin=0, vmax=MAX_WAVE_HEIGHT_FT),
+    LOG.info("Drawing Monterey bay map")
+    ax_main = fig.add_subplot(gs[0, :])
+    map_main = Map(
+        ax=ax_main,
+        wave_height_ft=wave_height_ft,
+        wave_direction_rad=wave_direction_rad,
+        lats=lats,
+        lons=lons,
+        lat_min_idx=60,
+        lat_max_idx=110,
+        lon_min_idx=20,
+        lon_max_idx=70,
     )
-    plt.colorbar(img, orientation="vertical", label="(ft)", shrink=0.8)
 
-    # NOTE: add 180 degrees because "wind direction" is where the wind comes from
-    arrow_heading_rad = wave_direction_rad + np.pi
-    arrows, arrow_latlon_idxs = draw_arrows(arrow_heading_rad[0], lats=lats, lons=lons)
+    LOG.info("Drawing Breakwater map")
+    ax_bw = fig.add_subplot(gs[1, 0])
+    map_bw = Map(
+        ax=ax_bw,
+        wave_height_ft=None,
+        wave_direction_rad=wave_direction_rad,
+        lats=lats,
+        lons=lons,
+        lat_min_idx=BREAKWATER_LAT_IDX - 2,
+        lat_max_idx=BREAKWATER_LAT_IDX + 3,
+        lon_min_idx=BREAKWATER_LON_IDX - 2,
+        lon_max_idx=BREAKWATER_LON_IDX + 3,
+        draw_arrows_length=DEFAULT_ARROW_LENGTH / 3,
+        draw_arrows_stride=1,
+    )
+    ax_bw.set_title("Breakwater")
+
+    LOG.info("Drawing Monastery map")
+    ax_mon = fig.add_subplot(gs[1, 1])
+    map_mon = Map(
+        ax=ax_mon,
+        wave_height_ft=None,
+        wave_direction_rad=wave_direction_rad,
+        lats=lats,
+        lons=lons,
+        lat_min_idx=MONASTERY_LAT_IDX - 1,
+        lat_max_idx=MONASTERY_LAT_IDX + 4,
+        lon_min_idx=MONASTERY_LON_IDX - 3,
+        lon_max_idx=MONASTERY_LON_IDX + 2,
+        draw_arrows_length=DEFAULT_ARROW_LENGTH / 3,
+        draw_arrows_stride=1,
+    )
+    ax_mon.set_title("Monastery")
+
+    plt.tight_layout()
+    plt.colorbar(map_main.img, orientation="vertical", label="(ft)", shrink=0.8)
 
     plot_dir = out_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
@@ -247,10 +171,11 @@ def main(
         pacific_time = analysis_date_pacific + datetime.timedelta(hours=hour_i)
         pacific_time_str = pacific_time.strftime(DATETIME_FORMAT)
 
-        img.set_data(wave_height_ft[hour_i])
-        update_arrows(arrow_heading_rad[hour_i], lats=lats, lons=lons, arrows=arrows, latlon_idxs=arrow_latlon_idxs)
+        map_main.update(hour_i)
+        map_bw.update(hour_i)
+        map_mon.update(hour_i)
 
-        plt.title(f"Significant wave height (ft) and primary wave direction\nHour {hour_i:03} -- {pacific_time_str}")
+        ax_main.set_title(f"Significant wave height (ft) and wave direction\nHour {hour_i:03} -- {pacific_time_str}")
         plt.savefig(plot_dir / f"{hour_i}.png")
 
     # Get current time
@@ -274,5 +199,5 @@ def main(
 if __name__ == "__main__":
     import tyro
 
-    logging.basicConfig(level=logging.INFO, format="[%(levelname)5s] [%(created)f] %(name)s: %(message)s")
+    setup_logging()
     tyro.cli(main)
