@@ -7,7 +7,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
-import PIL
+import PIL.Image
 import pygrib
 from jinja2 import Environment, PackageLoader, select_autoescape
 from tqdm import tqdm
@@ -45,7 +45,7 @@ def utc_to_pt(dt: datetime.datetime) -> datetime.datetime:
     return dt.astimezone(tz=TZ_PACIFIC)
 
 
-def save_fig_to_png(path: Path) -> None:
+def savefig(path: Path) -> None:
     """
     Save matplotlib figure to PNG file.
 
@@ -206,7 +206,7 @@ def main(
         map_mon.update(hour_i)
 
         ax_main.set_title(f"Significant wave height (ft) and wave direction\nHour {hour_i:03} -- {pacific_time_str}")
-        save_fig_to_png(plot_dir / f"{hour_i}.png")
+        savefig(plot_dir / f"{hour_i}.png")
 
     # Get current time
 
