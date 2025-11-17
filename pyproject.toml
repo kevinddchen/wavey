@@ -1,8 +1,19 @@
 [project]
 name = "wavey"
 version = "0.1.0"
-description = "Add your description here"
+authors = [
+    {name = "Kevin Chen"},
+]
+description = "Visualizing nearshore wave forecasts for Monterey scuba diving"
 readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 requires-python = ">=3.12"
 dependencies = [
     "basemap",
