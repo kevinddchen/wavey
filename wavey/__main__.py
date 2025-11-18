@@ -98,39 +98,63 @@ def main(
     with pygrib.open(grib_path) as grbs:
         wave_height_forecast = read_forecast_data(grbs, ForecastType.WaveHeight)
         wave_direction_forecast = read_forecast_data(grbs, ForecastType.WaveDirection)
+        wave_period_forecast = read_forecast_data(grbs, ForecastType.WavePeriod)
 
     wave_height_ft = wave_height_forecast.data * FEET_PER_METER
     wave_direction_rad = wave_direction_forecast.data * np.pi / 180
+    wave_period_sec = wave_period_forecast.data
     lats = wave_height_forecast.lats
     lons = wave_height_forecast.lons
     analysis_date_pacific = utc_to_pt(wave_height_forecast.analysis_date_utc)
 
     # Get Breakwater data
 
-    bw_wave_heights_ft = wave_height_ft[..., BREAKWATER_LAT_IDX, BREAKWATER_LON_IDX]
-    assert not np.ma.is_masked(bw_wave_heights_ft), "Unexpected: Breakwater data contains masked points"
+    bw_wave_height_ft = wave_height_ft[..., BREAKWATER_LAT_IDX, BREAKWATER_LON_IDX]
+    bw_wave_period_sec = wave_period_sec[..., BREAKWATER_LAT_IDX, BREAKWATER_LON_IDX]
+    assert not np.ma.is_masked(bw_wave_height_ft) and not np.ma.is_masked(bw_wave_period_sec), (
+        "Unexpected: Breakwater data contains masked points"
+    )
 
     # Get Monastery data
 
-    mon_wave_heights_ft = wave_height_ft[..., MONASTERY_LAT_IDX, MONASTERY_LON_IDX]
-    assert not np.ma.is_masked(mon_wave_heights_ft), "Unexpected: Monastery data contains masked points"
+    mon_wave_height_ft = wave_height_ft[..., MONASTERY_LAT_IDX, MONASTERY_LON_IDX]
+    mon_wave_period_sec = wave_period_sec[..., MONASTERY_LAT_IDX, MONASTERY_LON_IDX]
+    assert not np.ma.is_masked(mon_wave_height_ft) and not np.ma.is_masked(mon_wave_period_sec), (
+        "Unexpected: Monastery data contains masked points"
+    )
 
-    # Plotting swell graph
+    # Plotting swell and period graph
 
-    LOG.info("Plotting swell graph")
-    fig, ax = plt.subplots(figsize=(9, 3), dpi=DPI)
+    LOG.info("Plotting swell and period graph")
+    fig, (ax_height, ax_period) = plt.subplots(
+        2, 1, figsize=(9, 6), sharex=True, gridspec_kw={"height_ratios": [2, 1]}, dpi=DPI
+    )
 
     # NOTE: need to erase timezone info for mlpd3 to plot local times correctly
-    x0 = analysis_date_pacific.replace(tzinfo=None)
-    x = [x0 + datetime.timedelta(hours=hour_i) for hour_i in range(NUM_DATA_POINTS)]
-    for label, y in (("Breakwater", bw_wave_heights_ft), ("Monastery", mon_wave_heights_ft)):
-        ax.plot(x, y, label=label)  # type: ignore[arg-type]
+    time0 = analysis_date_pacific.replace(tzinfo=None)
+    times = [time0 + datetime.timedelta(hours=hour_i) for hour_i in range(NUM_DATA_POINTS)]
 
-    ax.set_ylim(0)
-    ax.set_ylabel("Significant wave height (ft)")
-    ax.set_xlabel("Time (Pacific)")
-    ax.legend(loc="upper right")
-    ax.grid(linestyle=":")
+    labels = ("Breakwater", "Monastery")
+    colors = ("blue", "red")
+
+    for i, y in enumerate((bw_wave_height_ft, mon_wave_height_ft)):
+        ax_height.plot(times, y, label=labels[i], color=colors[i])  # type: ignore[arg-type]
+
+    ax_height.set_ylim(0)
+    ax_height.set_ylabel("Significant wave height (ft)")
+    ax_height.yaxis.label.set_fontsize(14)
+    ax_height.xaxis.set_ticks_position("bottom")
+    ax_height.legend(loc="upper right")
+    ax_height.grid(True, linestyle=":", alpha=0.7)
+
+    for i, y in enumerate((bw_wave_period_sec, mon_wave_period_sec)):
+        ax_period.plot(times, y, label=labels[i], color=colors[i])  # type: ignore[arg-type]
+
+    ax_period.set_ylabel("Primary wave period (sec)")
+    ax_period.set_xlabel("Time (Pacific)")
+    ax_period.yaxis.label.set_fontsize(14)
+    ax_period.legend(loc="upper right")
+    ax_period.grid(True, linestyle=":", alpha=0.7)
 
     plt.tight_layout()
     fig_div = mpld3.fig_to_html(fig)
@@ -205,7 +229,9 @@ def main(
         map_bw.update(hour_i)
         map_mon.update(hour_i)
 
-        ax_main.set_title(f"Significant wave height (ft) and wave direction\nHour {hour_i:03} -- {pacific_time_str}")
+        ax_main.set_title(
+            f"Significant wave height (ft) and primary wave direction\nHour {hour_i:03} -- {pacific_time_str}"
+        )
         savefig(plot_dir / f"{hour_i}.png")
 
     # Get current time and version
