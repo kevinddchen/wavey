@@ -1,12 +1,15 @@
 [build-system]
-requires = ["uv_build"]
-build-backend = "uv_build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "wavey/__init__.py"
 
 [project]
 name = "wavey"
-version = "0.1.0"
+dynamic = ["version"]
 authors = [
-    {name = "Kevin Chen"},
+    {name = "Kevin Chen", email = "kevinddchen@ucla.edu"},
 ]
 description = "Visualizing nearshore wave forecasts for Monterey scuba diving"
 readme = "README.md"
@@ -55,7 +58,3 @@ ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 120
-
-[tool.uv.build-backend]
-module-name = "wavey"
-module-root = ""

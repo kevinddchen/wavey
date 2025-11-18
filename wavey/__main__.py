@@ -1,5 +1,4 @@
 import datetime
-import importlib.metadata
 import io
 import logging
 from pathlib import Path
@@ -13,6 +12,7 @@ import pygrib
 from jinja2 import Environment, PackageLoader, select_autoescape
 from tqdm import tqdm
 
+import wavey
 from wavey.common import DATETIME_FORMAT, FEET_PER_METER, TZ_PACIFIC, TZ_UTC, setup_logging
 from wavey.grib import NUM_DATA_POINTS, ForecastType, read_forecast_data
 from wavey.map import DEFAULT_ARROW_LENGTH, RESOLUTION, Map
@@ -214,7 +214,7 @@ def main(
     now_pacific = now_utc.astimezone(tz=TZ_PACIFIC)
     now_pacific_str = now_pacific.strftime(DATETIME_FORMAT)
 
-    version = importlib.metadata.version("wavey")
+    version = wavey.__version__
 
     # Export HTML
 
