@@ -218,8 +218,8 @@ def main(
 
     # Export HTML
 
-    index_path = out_dir / "index.html"
-    LOG.info(f"Saving webpage to '{index_path}'")
+    out_html_path = out_dir / "index.html"
+    LOG.info(f"Saving webpage to '{out_html_path}'")
     env = Environment(loader=PackageLoader("wavey"), autoescape=select_autoescape())
     template_html = env.get_template("index.html.j2")
     out_html = template_html.render(
@@ -227,7 +227,7 @@ def main(
         last_updated=now_pacific_str,
         version=version,
     )
-    index_path.write_text(out_html)
+    out_html_path.write_text(out_html)
 
 
 if __name__ == "__main__":
