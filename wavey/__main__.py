@@ -126,7 +126,9 @@ def main(
     # Plotting swell and period graph
 
     LOG.info("Plotting swell and period graph")
-    fig, (ax_height, ax_period) = plt.subplots(2, 1, figsize=(9, 6), sharex=True, gridspec_kw={"height_ratios": [2, 1]})
+    fig, (ax_height, ax_period) = plt.subplots(
+        2, 1, figsize=(9, 6), sharex=True, gridspec_kw={"height_ratios": [2, 1]}, dpi=DPI
+    )
 
     # NOTE: need to erase timezone info for mlpd3 to plot local times correctly
     time0 = analysis_date_pacific.replace(tzinfo=None)
