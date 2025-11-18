@@ -1,8 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "wavey/__init__.py"
+
 [project]
 name = "wavey"
-version = "0.1.0"
+dynamic = ["version"]
 authors = [
-    {name = "Kevin Chen"},
+    {name = "Kevin Chen", email = "kevinddchen@ucla.edu"},
 ]
 description = "Visualizing nearshore wave forecasts for Monterey scuba diving"
 readme = "README.md"
