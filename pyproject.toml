@@ -1,3 +1,7 @@
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
+
 [project]
 name = "wavey"
 version = "0.1.0"
@@ -51,3 +55,7 @@ ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 120
+
+[tool.uv.build-backend]
+module-name = "wavey"
+module-root = ""

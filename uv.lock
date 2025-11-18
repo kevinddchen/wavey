@@ -1603,7 +1603,7 @@ wheels = [
 [[package]]
 name = "wavey"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "basemap" },
     { name = "basemap-data-hires" },

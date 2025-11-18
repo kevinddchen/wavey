@@ -1,4 +1,5 @@
 import datetime
+import importlib.metadata
 import io
 import logging
 from pathlib import Path
@@ -85,8 +86,6 @@ def main(
     if resolution != "f":
         LOG.warning("Not drawing full resolution coastlines. Use the flag '--resolution f'")
 
-    out_dir.mkdir(parents=True, exist_ok=True)
-
     # Download data, if needed
 
     if grib_path is None:
@@ -116,9 +115,9 @@ def main(
     mon_wave_heights_ft = wave_height_ft[..., MONASTERY_LAT_IDX, MONASTERY_LON_IDX]
     assert not np.ma.is_masked(mon_wave_heights_ft), "Unexpected: Monastery data contains masked points"
 
-    # Draw Breakwater graph
+    # Plotting swell graph
 
-    LOG.info("Drawing swell graph")
+    LOG.info("Plotting swell graph")
     fig, ax = plt.subplots(figsize=(9, 3), dpi=DPI)
 
     # NOTE: need to erase timezone info for mlpd3 to plot local times correctly
@@ -136,7 +135,7 @@ def main(
     plt.tight_layout()
     fig_div = mpld3.fig_to_html(fig)
 
-    # Draw figure
+    # Draw maps
 
     fig = plt.figure(figsize=(8, 10), dpi=DPI)
     gs = fig.add_gridspec(2, 2, height_ratios=[3, 1])
@@ -195,6 +194,7 @@ def main(
     plt.tight_layout()
     plt.colorbar(map_main.img, orientation="vertical", label="(ft)", shrink=0.8)
 
+    LOG.info("Creating colormap frames")
     plot_dir = out_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
     for hour_i in tqdm(range(NUM_DATA_POINTS)):
@@ -208,22 +208,26 @@ def main(
         ax_main.set_title(f"Significant wave height (ft) and wave direction\nHour {hour_i:03} -- {pacific_time_str}")
         savefig(plot_dir / f"{hour_i}.png")
 
-    # Get current time
+    # Get current time and version
 
     now_utc = datetime.datetime.now(tz=TZ_UTC)
     now_pacific = now_utc.astimezone(tz=TZ_PACIFIC)
     now_pacific_str = now_pacific.strftime(DATETIME_FORMAT)
 
+    version = importlib.metadata.version("wavey")
+
     # Export HTML
 
-    LOG.info(f"Saving webpage to '{out_dir}'")
+    index_path = out_dir / "index.html"
+    LOG.info(f"Saving webpage to '{index_path}'")
     env = Environment(loader=PackageLoader("wavey"), autoescape=select_autoescape())
     template_html = env.get_template("index.html.j2")
     out_html = template_html.render(
         swell_graph=fig_div,
         last_updated=now_pacific_str,
+        version=version,
     )
-    (out_dir / "index.html").write_text(out_html)
+    index_path.write_text(out_html)
 
 
 if __name__ == "__main__":
