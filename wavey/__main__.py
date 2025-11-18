@@ -99,10 +99,12 @@ def main(
         wave_height_forecast = read_forecast_data(grbs, ForecastType.WaveHeight)
         wave_direction_forecast = read_forecast_data(grbs, ForecastType.WaveDirection)
         wave_period_forecast = read_forecast_data(grbs, ForecastType.WavePeriod)
+        tide_height_forecast = read_forecast_data(grbs, ForecastType.SeaSurfaceHeight)
 
     wave_height_ft = wave_height_forecast.data * FEET_PER_METER
     wave_direction_rad = wave_direction_forecast.data * np.pi / 180
     wave_period_sec = wave_period_forecast.data
+    tide_height_ft = tide_height_forecast.data * FEET_PER_METER
     lats = wave_height_forecast.lats
     lons = wave_height_forecast.lons
     analysis_date_pacific = utc_to_pt(wave_height_forecast.analysis_date_utc)
@@ -123,11 +125,16 @@ def main(
         "Unexpected: Monastery data contains masked points"
     )
 
-    # Plotting swell and period graph
+    # Get tide height. We measure at Breakwater for simplicity.
 
-    LOG.info("Plotting swell and period graph")
-    fig, (ax_height, ax_period) = plt.subplots(
-        2, 1, figsize=(9, 6), sharex=True, gridspec_kw={"height_ratios": [2, 1]}, dpi=DPI
+    tide_height_ft = tide_height_ft[..., BREAKWATER_LAT_IDX, BREAKWATER_LON_IDX]
+    assert not np.ma.is_masked(tide_height_ft), "Unexpected: sea level data contains masked points"
+
+    # Plotting graph
+
+    LOG.info("Plotting graph")
+    fig, (ax_height, ax_period, ax_tide) = plt.subplots(
+        3, 1, figsize=(8, 8), sharex=True, gridspec_kw={"height_ratios": [2, 1, 1]}, dpi=DPI
     )
 
     # NOTE: need to erase timezone info for mlpd3 to plot local times correctly
@@ -151,10 +158,17 @@ def main(
         ax_period.plot(times, y, label=labels[i], color=colors[i])  # type: ignore[arg-type]
 
     ax_period.set_ylabel("Primary wave period (sec)")
-    ax_period.set_xlabel("Time (Pacific)")
     ax_period.yaxis.label.set_fontsize(14)
+    ax_period.xaxis.set_ticks_position("bottom")
     ax_period.legend(loc="upper right")
     ax_period.grid(True, linestyle=":", alpha=0.7)
+
+    ax_tide.plot(times, tide_height_ft, color="black")
+
+    ax_tide.set_ylabel("Tide height (ft)")
+    ax_tide.yaxis.label.set_fontsize(14)
+    ax_tide.set_xlabel("Time (Pacific)")
+    ax_tide.grid(True, linestyle=":", alpha=0.7)
 
     plt.tight_layout()
     fig_div = mpld3.fig_to_html(fig)
