@@ -191,6 +191,8 @@ def main(
         lon_min_idx=20,
         lon_max_idx=70,
         resolution=resolution,
+        water_color=None,
+        land_color=None,
     )
 
     LOG.info("Drawing Breakwater map")
