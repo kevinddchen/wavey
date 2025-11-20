@@ -23,13 +23,23 @@ matplotlib.rcParams["backend"] = "agg"
 
 LOG = logging.getLogger(__name__)
 
-# Location of San Carlos Beach (aka Breakwater)
+# Location of Breakwater (aka San Carlos Beach)
+BREAKWATER_LAT = 36.6125
+BREAKWATER_LON = 238.1049
+# Closest grid point with forecast data
 BREAKWATER_LAT_IDX = 91  # 36.61132
 BREAKWATER_LON_IDX = 55  # 238.10899
 
 # Location of Monastery Beach
+MONASTERY_LAT = 36.5260
+MONASTERY_LON = 238.0722
+# Closest grid point with forecast data
 MONASTERY_LAT_IDX = 72  # 36.52544
 MONASTERY_LON_IDX = 48  # 238.06966
+
+# Location of Point Lobos
+LOBOS_LAT = 36.5228
+LOBOS_LON = 238.0598
 
 DPI = 100
 """Matplotlib figure dpi."""
@@ -211,6 +221,7 @@ def main(
         draw_arrows_length=DEFAULT_ARROW_LENGTH / 3,
         draw_arrows_stride=1,
     )
+    ax_bw.plot(BREAKWATER_LON, BREAKWATER_LAT, "ro")
     ax_bw.set_title("Breakwater")
 
     LOG.info("Drawing Monastery map")
@@ -229,6 +240,8 @@ def main(
         draw_arrows_length=DEFAULT_ARROW_LENGTH / 3,
         draw_arrows_stride=1,
     )
+    ax_mon.plot(MONASTERY_LON, MONASTERY_LAT, "ro")
+    # ax_mon.plot(LOBOS_LON, LOBOS_LAT, "ro")
     ax_mon.set_title("Monastery")
 
     plt.tight_layout()

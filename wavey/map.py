@@ -2,8 +2,10 @@ import logging
 from typing import Iterable, Literal, NamedTuple
 
 import matplotlib
-import matplotlib.colors as mcolors
-import matplotlib.patches as mpatches
+import matplotlib.axes
+import matplotlib.colors
+import matplotlib.image
+import matplotlib.patches
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.basemap import Basemap
@@ -20,7 +22,7 @@ MAX_WAVE_HEIGHT_FT = 12.0
 class _Arrow(NamedTuple):
     """Container for data associated to an arrow on the figure."""
 
-    arrow: mpatches.FancyArrow
+    arrow: matplotlib.patches.FancyArrow
     """matplotlib `FancyArrow` instance."""
     length: float
     """Length of arrow."""
@@ -129,6 +131,12 @@ RESOLUTION = Literal["c", "l", "i", "h", "f"]
 
 
 class Map:
+    wave_height_ft: np.ma.MaskedArray | None
+    wave_direction_rad: np.ma.MaskedArray | None
+    map: Basemap
+    img: matplotlib.image.AxesImage | None
+    arrows: list[_Arrow]
+
     def __init__(
         self,
         ax: matplotlib.axes.Axes,
@@ -191,7 +199,7 @@ class Map:
         lats = lats[lat_min_idx:lat_max_idx, lon_min_idx:lon_max_idx]
         lons = lons[lat_min_idx:lat_max_idx, lon_min_idx:lon_max_idx]
 
-        map = Basemap(
+        self.map = Basemap(
             projection="cyl",
             llcrnrlat=lat_min,
             llcrnrlon=lon_min,
@@ -200,19 +208,21 @@ class Map:
             resolution=resolution,
             ax=ax,
         )
-        map.drawcoastlines()
+        self.map.drawcoastlines()
 
         if water_color is not None:
-            map.drawmapboundary(fill_color=water_color)
+            self.map.drawmapboundary(fill_color=water_color)
         if land_color is not None:
-            map.fillcontinents(color=land_color)
+            self.map.fillcontinents(color=land_color)
 
         if self.wave_height_ft is not None:
-            self.img = map.imshow(
+            self.img = self.map.imshow(
                 self.wave_height_ft[0],
                 cmap="jet",
-                norm=mcolors.Normalize(vmin=0, vmax=MAX_WAVE_HEIGHT_FT),
+                norm=matplotlib.colors.Normalize(vmin=0, vmax=MAX_WAVE_HEIGHT_FT),
             )
+        else:
+            self.img = None
 
         if self.arrow_heading_rad is not None:
             self.arrows = _draw_arrows(
@@ -222,11 +232,13 @@ class Map:
                 length=draw_arrows_length,
                 stride=draw_arrows_stride,
             )
+        else:
+            self.arrows = []
 
     def update(self, hour_i: int) -> None:
         """Update map to the given hour (index)."""
 
-        if self.wave_height_ft is not None:
+        if self.wave_height_ft is not None and self.img is not None:
             self.img.set_data(self.wave_height_ft[hour_i])
 
         if self.arrow_heading_rad is not None:
