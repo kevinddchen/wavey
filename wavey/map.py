@@ -143,6 +143,8 @@ class Map:
         resolution: RESOLUTION = "h",
         draw_arrows_length: float = DEFAULT_ARROW_LENGTH,
         draw_arrows_stride: int = 3,
+        water_color: str | None = "lightcyan",
+        land_color: str | None = "wheat",
     ) -> None:
         """
         Map plotting wave height as a colormap and wave direction with arrows.
@@ -165,6 +167,8 @@ class Map:
             draw_arrows_length: Length of arrows.
             draw_arrows_stride: Create an arrow for every multiple of `stride`
                 indicies.
+            water_color: Color of water.
+            land_color: Color of land.
         """
 
         # NOTE: not sure why this offset is needed, but looks better with it
@@ -197,6 +201,11 @@ class Map:
             ax=ax,
         )
         map.drawcoastlines()
+
+        if water_color is not None:
+            map.drawmapboundary(fill_color=water_color)
+        if land_color is not None:
+            map.fillcontinents(color=land_color)
 
         if self.wave_height_ft is not None:
             self.img = map.imshow(
