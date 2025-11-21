@@ -170,7 +170,7 @@ def main(
     for i, y in enumerate((bw_wave_period_sec, mon_wave_period_sec)):
         ax_period.plot(times, y, label=labels[i], color=colors[i])  # type: ignore[arg-type]
 
-    ax_period.set_ylabel("Primary wave period (sec)")
+    ax_period.set_ylabel("Peak wave period (sec)")
     ax_period.yaxis.label.set_fontsize(14)
     ax_period.xaxis.set_ticks_position("bottom")
     ax_period.legend(loc="upper right")
@@ -248,7 +248,8 @@ def main(
     ax_mon.set_title("Pt. Lobos & Monastery")
 
     plt.tight_layout()
-    plt.colorbar(map_main.img, orientation="vertical", label="(ft)", shrink=0.8)
+    cbar = plt.colorbar(map_main.img, orientation="vertical", shrink=0.8)
+    cbar.set_label("ft", rotation=0)
 
     LOG.info("Creating colormap frames")
     plot_dir = out_dir / "plots"
@@ -262,7 +263,7 @@ def main(
         map_mon.update(hour_i)
 
         ax_main.set_title(
-            f"Significant wave height (ft) and primary wave direction\nHour {hour_i:03} -- {pacific_time_str}"
+            f"Significant wave height (ft) and peak wave direction\nHour {hour_i:03}    {pacific_time_str}"
         )
         savefig(plot_dir / f"{hour_i}.png")
 

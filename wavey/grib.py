@@ -29,9 +29,9 @@ class ForecastType(IntEnum):
     WaveHeight = 0
     """Significant height of combined wind waves and swell (m)"""
     WaveDirection = 1
-    """Primary wave direction (deg)"""
+    """Peak wave direction (deg)"""
     WavePeriod = 2
-    """Primary wave mean period (s)"""
+    """Peak wave mean period (s)"""
     SwellHeight = 3
     """Significant height of total swell (m)"""
     WindDirection = 4
