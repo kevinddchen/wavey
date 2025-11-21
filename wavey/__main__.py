@@ -1,6 +1,8 @@
 import datetime
 import io
+import itertools
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import matplotlib
@@ -59,23 +61,23 @@ def utc_to_pt(dt: datetime.datetime) -> datetime.datetime:
     return dt.astimezone(tz=TZ_PACIFIC)
 
 
-def savefig(path: Path) -> None:
+def quantize_png(png_bytes: io.BytesIO, path: Path, dither: bool) -> None:
     """
-    Save matplotlib figure to PNG file.
-
-    We perform a bit of optimization to make the output filesize smaller
-    without sacrificing quality.
+    Quantize a PNG and save to disk. We try to make the output file small
+    without sacrificing too much quality.
 
     Args:
+        png_bytes: Bytes of the PNG
         path: Path to output PNG file.
+        dither: Whether to use dithering.
     """
 
-    bts = io.BytesIO()
-    plt.savefig(bts, format="png")
-
-    with PIL.Image.open(bts) as img:
-        img2 = img.convert("RGB").convert("P", palette=PIL.Image.Palette.WEB)
-        img2.save(path, format="png")
+    with PIL.Image.open(png_bytes) as img:  # RGBA image
+        if dither:
+            # converting to RGB will enable dithering
+            img = img.convert("RGB")
+        img = img.convert("P", palette=PIL.Image.Palette.WEB)
+        img.save(path, format="png", optimize=True)
 
 
 def main(
@@ -83,6 +85,7 @@ def main(
     /,
     out_dir: Path = Path("_site"),
     resolution: RESOLUTION = "h",
+    dither: bool = True,
 ) -> None:
     """
     Create plots for significant wave height.
@@ -94,6 +97,7 @@ def main(
         out_dir: Path to output directory.
         resolution: Resolution of the coastline map. Options are crude, low,
             intermediate, high, and full.
+        dither: Dithering increases image quality, but also increases image size.
     """
 
     if resolution != "f":
@@ -254,6 +258,9 @@ def main(
     LOG.info("Creating colormap frames")
     plot_dir = out_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
+
+    # render each frame
+    frame_pngs_bytes: list[io.BytesIO] = []
     for hour_i in tqdm(range(NUM_DATA_POINTS)):
         pacific_time = analysis_date_pacific + datetime.timedelta(hours=hour_i)
         pacific_time_str = pacific_time.strftime(DATETIME_FORMAT)
@@ -265,7 +272,15 @@ def main(
         ax_main.set_title(
             f"Significant wave height (ft) and peak wave direction\nHour {hour_i:03}    {pacific_time_str}"
         )
-        savefig(plot_dir / f"{hour_i}.png")
+
+        png_bytes = io.BytesIO()
+        plt.savefig(png_bytes, format="png")
+        frame_pngs_bytes.append(png_bytes)
+
+    # quantize each PNG and save to disk
+    with ThreadPoolExecutor() as exe:
+        paths = [plot_dir / f"{hour_i}.png" for hour_i in range(NUM_DATA_POINTS)]
+        exe.map(quantize_png, frame_pngs_bytes, paths, itertools.repeat(dither))
 
     # Get current time and version
 
