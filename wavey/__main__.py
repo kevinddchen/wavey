@@ -61,23 +61,22 @@ def utc_to_pt(dt: datetime.datetime) -> datetime.datetime:
     return dt.astimezone(tz=TZ_PACIFIC)
 
 
-def quantize_png(png_bytes: io.BytesIO, path: Path, dither: bool) -> None:
+def quantize_png(in_png: str | Path | io.BytesIO, out_path: Path, dither: bool) -> None:
     """
-    Quantize a PNG and save to disk. We try to make the output file small
-    without sacrificing too much quality.
+    Quantize a PNG to save space and save to disk.
 
     Args:
-        png_bytes: Bytes of the PNG
-        path: Path to output PNG file.
+        in_png: Input PNG. Should be in "RGBA" format.
+        out_path: Path to output PNG file.
         dither: Whether to use dithering.
     """
 
-    with PIL.Image.open(png_bytes) as img:  # RGBA image
+    with PIL.Image.open(in_png) as img:  # RGBA image
         if dither:
             # converting to RGB will enable dithering
             img = img.convert("RGB")
         img = img.convert("P", palette=PIL.Image.Palette.WEB)
-        img.save(path, format="png", optimize=True)
+        img.save(out_path, format="png", optimize=True)
 
 
 def main(
@@ -97,7 +96,7 @@ def main(
         out_dir: Path to output directory.
         resolution: Resolution of the coastline map. Options are crude, low,
             intermediate, high, and full.
-        dither: Dithering increases image quality, but also increases image size.
+        dither: Dithering increases image quality, but also increases storage size.
     """
 
     if resolution != "f":
