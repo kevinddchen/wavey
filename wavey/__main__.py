@@ -161,7 +161,7 @@ def main(
     colors = ("blue", "red")
 
     for i, y in enumerate((bw_wave_height_ft, mon_wave_height_ft)):
-        ax_height.plot(times, y, label=labels[i], color=colors[i])  # type: ignore[arg-type]
+        ax_height.plot(times, y, label=labels[i], color=colors[i])
 
     ax_height.set_ylim(0)
     ax_height.set_ylabel("Significant wave height (ft)")
@@ -171,7 +171,7 @@ def main(
     ax_height.grid(True, linestyle=":", alpha=0.7)
 
     for i, y in enumerate((bw_wave_period_sec, mon_wave_period_sec)):
-        ax_period.plot(times, y, label=labels[i], color=colors[i])  # type: ignore[arg-type]
+        ax_period.plot(times, y, label=labels[i], color=colors[i])
 
     ax_period.set_ylabel("Peak wave period (sec)")
     ax_period.yaxis.label.set_fontsize(14)
