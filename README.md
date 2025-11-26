@@ -30,20 +30,22 @@ This is a Python project, and the easiest way to get started is with [uv](https:
 ```
 uv venv
 uv sync
+source .venv/bin/activate
 ```
 
 To generate the webpage,
 
 ```
-uv run -m wavey
+python -m wavey
 ```
 
 This will create a directory "_site/" which contains the webpage.
 
-We use `mypy` to perform static analysis and `ruff` to perform linting and formatting.
+We use `mypy` to perform static type checking and `ruff` to perform linting and formatting.
 
 ```
-uv run mypy .
-uv run ruff check .
-uv run ruff format --check .
+mypy .
+
+ruff check .
+ruff format --check .
 ```
