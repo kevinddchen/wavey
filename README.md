@@ -14,9 +14,9 @@
 
 ## Data
 
- -  All wave and tide forecast data comes from [NWPS](https://polar.ncep.noaa.gov/nwps/), which is downloaded from https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod/.
+ -  All wave and tide forecast data comes from [NWPS](https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwps/prod/).
     We make a very similar map showing the wave height in color and wave direction with arrows.
-    But we also plot the wave height over time for two dive sites, [Breakwater (San Carlos beach)](https://maps.app.goo.gl/wHzyiZY1mi4THkto8) and [Monastery beach](https://maps.app.goo.gl/nZdXUZvYriEUVF8z9).
+    We also plot the wave height over time for two dive sites, [Breakwater (San Carlos beach)](https://maps.app.goo.gl/wHzyiZY1mi4THkto8) and [Monastery beach](https://maps.app.goo.gl/nZdXUZvYriEUVF8z9).
     This is more similar to Windy's user interface, and is useful for tracking how conditions for a particular site develop over time.
 
      -  The website updates daily when data from new NWPS runs are available.
