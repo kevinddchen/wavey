@@ -20,9 +20,6 @@ from wavey.grib import NUM_DATA_POINTS, ForecastType, read_forecast_data
 from wavey.map import DEFAULT_ARROW_LENGTH, RESOLUTION, Map
 from wavey.nwfs import download_forecast, get_most_recent_forecast
 
-# Force non-interactive backend to keep consistency between local and github actions
-matplotlib.rcParams["backend"] = "agg"
-
 LOG = logging.getLogger(__name__)
 
 # Location of Breakwater (aka San Carlos Beach)
@@ -98,6 +95,9 @@ def main(
             intermediate, high, and full.
         dither: Dithering increases image quality, but also increases storage size.
     """
+
+    # Force non-interactive backend to keep consistency between local and github actions
+    matplotlib.rcParams["backend"] = "agg"
 
     if resolution != "f":
         LOG.warning("Not drawing full resolution coastlines. Use the flag '--resolution f'")
