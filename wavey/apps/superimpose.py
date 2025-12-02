@@ -10,14 +10,12 @@ from wavey.__main__ import (
     BREAKWATER_LAT_IDX,
     BREAKWATER_LON_IDX,
     DPI,
-    FEET_PER_METER,
     MONASTERY_LAT_IDX,
     MONASTERY_LON_IDX,
-    NUM_DATA_POINTS,
     utc_to_pt,
 )
-from wavey.common import setup_logging
-from wavey.grib import ForecastData, ForecastType, read_forecast_data
+from wavey.common import FEET_PER_METER, setup_logging
+from wavey.grib import NUM_DATA_POINTS, ForecastData, ForecastType, read_forecast_data
 from wavey.nwfs import download_forecast, get_all_forecasts
 
 LOG = logging.getLogger(__name__)
@@ -27,7 +25,8 @@ def main(
     time: Literal["00", "06"] = "06",
 ) -> None:
     """
-    Superimpose multiple forecasts from different times to see how accurate they are in retrospect.
+    Superimpose forecasts from multiple times on the same graph. This is useful for visualizing how reliable forecasts
+    are with different forecast horizons.
 
     Args:
         time: Forecast time in UTC, either "00" or "06".
@@ -63,6 +62,7 @@ def main(
         times = [time0 + datetime.timedelta(hours=hour_i) for hour_i in range(offset, NUM_DATA_POINTS)]
 
         # plot styles
+        labels: tuple[str | None, str | None]
         if offset == 0:
             labels = ("Breakwater", "Monastery")
             linestyle = "-"
@@ -72,8 +72,8 @@ def main(
             linestyle = "--"
             alpha = 0.5 ** ((offset / 24) - 1)
 
-        ax.plot(times, bw_wave_height_ft, label=labels[0], color="blue", linestyle=linestyle, alpha=alpha)
-        ax.plot(times, mon_wave_height_ft, label=labels[1], color="red", linestyle=linestyle, alpha=alpha)
+        ax.plot(times, bw_wave_height_ft, label=labels[0], color="blue", linestyle=linestyle, alpha=alpha)  # type: ignore[arg-type]
+        ax.plot(times, mon_wave_height_ft, label=labels[1], color="red", linestyle=linestyle, alpha=alpha)  # type: ignore[arg-type]
 
     ax.set_ylim(0)
     ax.set_ylabel("Significant wave height (ft)")
