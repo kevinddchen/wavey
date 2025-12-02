@@ -23,6 +23,9 @@ def get_most_recent_forecast() -> str:
 
     Returns:
         URL to the GRIB file.
+
+    Raises:
+        HTTPError: If accessing website returns error.
     """
 
     # 1. List dates with forecasts
@@ -55,17 +58,7 @@ def get_most_recent_forecast() -> str:
         "Unexpected: could not find any forecasts for Monterey bay."
     )
 
-    # parse date and time
-    date_match = re.search(r"\d{8}", most_recent_date)
-    assert date_match, f"Unexpected date: {most_recent_date}"
-    time_match = re.search(r"\d{2}", most_recent_time)
-    assert time_match, f"Unexpected time: {most_recent_time}"
-
-    yyyymmdd = date_match.group(0)
-    hh = time_match.group(0)
-    filename = f"{_MTR}_nwps_{_CG3}_{yyyymmdd}_{hh}00.grib2"
-
-    url = os.path.join(_BASE_URL, most_recent_date, _MTR, most_recent_time, _CG3, filename)
+    url = _get_url(date=most_recent_date, time=most_recent_time)
     LOG.info(f"Found most recent forecast: {url}")
     return url
 
@@ -103,6 +96,9 @@ def _list_dates() -> list[str]:
 
     Returns:
         List of strings like "wr.YYYYMMDD/"; sorted (most recent first).
+
+    Raises:
+        HTTPError: If accessing website returns error.
     """
 
     url = _BASE_URL
@@ -121,7 +117,7 @@ def _list_times(date: str) -> list[str]:
         List of strings like "HH/"; sorted (most recent first).
 
     Raises:
-        HTTPError: If no forecasts for the given date.
+        HTTPError: If no forecasts for Monterey on the given date.
     """
 
     url = os.path.join(_BASE_URL, date, _MTR)
@@ -146,6 +142,54 @@ def _check_time(date: str, time: str) -> bool:
     return r.ok
 
 
+def _get_url(date: str, time: str) -> str:
+    """
+    Given date and time, get URL to the GRIB file.
+
+    Args:
+        date: A string like "wr.YYYYMMDD/".
+        time: A string like "HH/".
+
+    Returns:
+        URL to the GRIB file.
+    """
+
+    date_match = re.search(r"\d{8}", date)
+    assert date_match, f"Unexpected date: {date}"
+    time_match = re.search(r"\d{2}", time)
+    assert time_match, f"Unexpected time: {time}"
+
+    yyyymmdd = date_match.group(0)
+    hh = time_match.group(0)
+    filename = f"{_MTR}_nwps_{_CG3}_{yyyymmdd}_{hh}00.grib2"
+
+    return os.path.join(_BASE_URL, date, _MTR, time, _CG3, filename)
+
+
+def get_all_forecasts(time: str = "06") -> list[str]:
+    """
+    Get all NWFS forecast data for Monterey bay.
+
+    Args:
+        time: A string like "HH/".
+
+    Returns:
+        List of URLS to GRIB files.
+
+    Raises:
+        HTTPError: If accessing website returns error.
+    """
+
+    # 1. List dates with forecasts
+    dates = _list_dates()
+    LOG.info(f"Found NWFS forecasts: {dates}")
+
+    # 2. For each date, check for Monterey bay forecast on the given time
+    good_dates = [date for date in dates if _check_time(date=date, time=time)]
+
+    return [_get_url(date=date, time=time) for date in good_dates]
+
+
 def download_forecast(url: str, dir: Path | None = None) -> Path:
     """
     Download NWFS forecast data to disk.
@@ -157,6 +201,9 @@ def download_forecast(url: str, dir: Path | None = None) -> Path:
 
     Returns:
         Path to the GRIB file.
+
+    Raises:
+        HTTPError: If error encountered during download.
     """
 
     if dir is None:
