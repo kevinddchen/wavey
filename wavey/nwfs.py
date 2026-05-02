@@ -47,7 +47,7 @@ def get_most_recent_forecast() -> str:
         for time in times:
             if _check_time(date=date, time=time):
                 most_recent_date = date
-                most_recent_time = times[0]
+                most_recent_time = time
                 break
 
         # propagate break out of for-loop above
@@ -218,6 +218,7 @@ def download_forecast(url: str, dir: Path | None = None) -> Path:
     r = requests.get(url, stream=True)
     r.raise_for_status()
 
+    file_path.parent.mkdir(parents=True, exist_ok=True)
     with open(file_path, "wb") as file:
         for chunk in r.iter_content(chunk_size=_CHUNK_SIZE):
             file.write(chunk)
