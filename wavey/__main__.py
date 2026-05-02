@@ -260,7 +260,7 @@ def main(
 
     # render each frame
     frame_pngs_bytes: list[io.BytesIO] = []
-    for hour_i in tqdm(range(NUM_DATA_POINTS)):
+    for hour_i in tqdm(range(NUM_DATA_POINTS), disable=None):
         pacific_time = analysis_date_pacific + datetime.timedelta(hours=hour_i)
         pacific_time_str = pacific_time.strftime(DATETIME_FORMAT)
 

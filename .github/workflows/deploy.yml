@@ -53,8 +53,6 @@ jobs:
       - name: Build site
         run: |
           uv run -m wavey --resolution f
-        env:
-          TQDM_DISABLE: 1
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
