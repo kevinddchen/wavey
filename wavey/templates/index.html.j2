@@ -14,6 +14,19 @@
       background: white;
       color: grey;
     }
+    .banner {
+      width: 100%;
+      background: #1a73e8;
+      color: white;
+      text-align: center;
+      padding: 0.6em 1em;
+      font-size: 0.95em;
+      box-sizing: border-box;
+    }
+    .banner a {
+      color: #cfe8ff;
+      font-weight: bold;
+    }
     img {
       width: 560px;
       max-width: 100%;
@@ -29,6 +42,10 @@
   </style>
 </head>
 <body>
+
+  <div class="banner">
+    A newer version of this website is available at <a href="https://kevinddchen.github.io/wavey2/">kevinddchen.github.io/wavey2</a>
+  </div>
 
   <img id="scrubImage" src="plots/0.png" alt="Significant wave height colormap" />
   <input type="range" id="slider" min="0" max="144" value="0" />

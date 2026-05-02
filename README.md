@@ -1,5 +1,7 @@
 # Wavey
 
+> **A newer version of this project is available at [kevinddchen/wavey2](https://github.com/kevinddchen/wavey2).**
+
 [_--> live website <--_](https://kevinddchen.github.io/wavey/)
 
 ## Manifesto
