@@ -17,10 +17,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      UV_NO_DEV: "1"
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -36,29 +38,26 @@ jobs:
         run: |
           git checkout ${{ steps.latest_tag.outputs.tag }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
       - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/0.9.10/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          version: "0.11.8"
+          python-version: "3.10"
+          enable-cache: true
 
       - name: Install Python dependencies
         run: |
-          uv sync --no-dev
+          uv sync
 
       - name: Build site
         run: |
           uv run -m wavey --resolution f
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./_site
 
@@ -73,4 +72,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
